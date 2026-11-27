@@ -7,7 +7,6 @@ from typing import Any
 
 import jwt
 
-
 ISSUER = "https://token.actions.githubusercontent.com"
 JWKS_URL = f"{ISSUER}/.well-known/jwks"
 
@@ -45,18 +44,11 @@ class GitHubOIDCVerifier:
                 audience=self.policy.audience,
                 issuer=ISSUER,
                 leeway=self.policy.leeway_seconds,
-                options={
-                    "require": ["exp", "iat", "iss", "aud", "jti", "repository", "ref"],
-                    "verify_signature": True,
-                    "verify_exp": True,
-                    "verify_iat": True,
-                    "verify_nbf": True,
-                },
+                options={"require": ["exp", "iat", "iss", "aud", "jti", "repository", "ref"]},
             )
-        except (jwt.PyJWTError, Exception) as exc:
-            # Network/JWKS errors are authentication failures too; never fail open.
+        except Exception as exc:
+            # JWKS/network failures are authentication failures too; never fail open.
             raise AuthenticationError("OIDC token verification failed") from exc
-
         if claims.get("repository") != self.policy.repository:
             raise AuthenticationError("OIDC repository claim mismatch")
         if claims.get("ref") != self.policy.ref:
