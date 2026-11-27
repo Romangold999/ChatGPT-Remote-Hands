@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ MAX_OUTPUT_CHARS = 100_000
 
 def execute(command: Command) -> dict[str, Any]:
     """Run bash -lc with a hard timeout and bounded result output."""
-    started = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    started = datetime.now(timezone.utc).isoformat()
     status = "error"
     exit_code = 1
     stdout = ""
@@ -40,7 +41,7 @@ def execute(command: Command) -> dict[str, Any]:
     except Exception as exc:
         status = "error"
         error = f"{type(exc).__name__}: {str(exc)[:1000]}"
-    finished = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    finished = datetime.now(timezone.utc).isoformat()
     return {
         "version": 1,
         "id": command.command_id,
