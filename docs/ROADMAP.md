@@ -1,64 +1,65 @@
-## Этап 1 — минимальный исполняемый Bridge
+# Roadmap
 
-- [x] Реализовать локальный listener с привязкой только к loopback.
-- [x] Реализовать OIDC signature/claims validation через GitHub JWKS.
-- [x] Добавить persistent jti replay и sequence state.
-- [x] Добавить строгую схему command envelope и лимит размера.
-- [x] Добавить начальный allowlist executor без произвольного shell.
-- [x] Добавить сохранение последнего terminal result и безопасный ответ на повтор той же команды.
-- [x] Добавить unit/integration tests и CI с установкой package dependencies.
-- [x] Добавить lifecycle CLI и безопасное управление фоновым процессом.
+## Этап 1 — push-event runtime
 
-**Критерий выхода:** локальный Bridge проходит security/integration tests и безопасно обрабатывает повторные запросы и аварийное завершение.
+- [x] Loopback listener на 127.0.0.1.
+- [x] GitHub OIDC RS256/JWKS verification.
+- [x] Проверка issuer, audience, repository, ref, event_name, временных claims и jti.
+- [x] Получение команды из private mailbox по точному commit SHA.
+- [x] Полноценный Bash executor через bash -lc.
+- [x] stdout, stderr, exit code и timeout.
+- [x] Persistent replay/sequence state.
+- [x] Сериализация команд и idempotent result cache.
+- [x] Публикация result.json и acknowledgement самим Termux.
+- [x] Unit/integration tests и CI.
 
-## Этап 2 — приватный operational repository
+Критерий выхода: локальный runtime принимает только проверенные push events, исполняет одну команду и публикует terminal result.
 
-- [x] Создать чистый template с mailbox и workflow.
-- [x] Использовать минимальные OIDC permissions и serialized concurrency.
-- [x] Закрепить checkout Action на immutable commit SHA.
-- [x] Отправлять structured result обратно в пользовательский mailbox.
-- [ ] Автоматически создавать private repo от имени пользователя.
-- [ ] Проверять владельца и приватность созданного репозитория.
-- [ ] Автоматически настраивать Actions variable для tunnel URL.
+## Этап 2 — operational repository
+
+- [x] Private repo template с command/result mailbox.
+- [x] Push-only workflow, который отправляет только event metadata.
+- [x] Workflow permissions contents:read и id-token:write.
+- [x] push-bridge/tunnel-url.txt.
+- [x] Отдельный private repo пользователя в installer draft.
+- [ ] Проверить GitHub CLI Contents read/write на clean install.
 - [ ] Протестировать две независимые пользовательские установки.
 
-**Критерий выхода:** пользователь получает собственный private repo, который не пересекается с репозиторием автора или других пользователей.
+## Этап 3 — tunnl.gg
 
-## Этап 3 — OIDC и защищённый tunnel
+- [x] Stable SSH reverse tunnel.
+- [x] Dedicated Ed25519 key per installation.
+- [x] Pinned host key.
+- [x] Reconnect supervisor.
+- [x] External health check and 55-minute tunnel keepalive.
+- [x] Publish stable URL to push-bridge/tunnel-url.txt.
+- [ ] Проверить reconnect и stable URL на реальном Android.
+- [ ] Проверить работу при смене сети и Android battery restrictions.
 
-- [x] Валидировать GitHub OIDC signature, issuer, audience, repository, ref, timestamps и jti.
-- [x] Исследовать tunnl.gg и реализовать stable SSH reverse tunnel для первого бесплатного сценария.
-- [x] Реализовать start/stop/status supervisor tunnl.gg, stable URL, reconnect и публикацию Actions variable.
-- [ ] Добавить автоматическое восстановление tunnel после остановки Android и безопасную ротацию URL.
-- [ ] Проверить end-to-end обмен с реальным tunnel provider.
+## Этап 4 — installer и background lifecycle
 
-**Критерий выхода:** listener принимает запросы только от workflow соответствующего private repo.
+- [x] Первый bootstrap draft для native Termux ARM64.
+- [x] GitHub CLI browser authorization.
+- [x] Private operational repo creation и template copy для новой установки.
+- [x] Separate SSH identity и registration flow.
+- [ ] Clean install и resume test на чистом Termux.
+- [ ] Safe upgrade existing installation without overwriting user files.
+- [ ] Background supervisor/restart behavior for listener and tunnel.
+- [ ] Opt-in wake lock / Termux:Boot, with correct install and permission checks.
+- [ ] Doctor/repair commands and health diagnostics.
 
-## Этап 4 — bootstrap и восстановление
+## Этап 5 — release hardening
 
-- [x] Добавить первый bootstrap draft `scripts/install.sh` для Termux ARM64.
-- [ ] Проверить установщик на чистом Termux и довести resume/идемпотентность до release quality.
-- [ ] Проверять зависимости и не перезаписывать неизвестные файлы.
-- [ ] Использовать GitHub CLI browser/device flow.
-- [ ] Создавать private operational repo и загружать только template.
-- [ ] Генерировать локальные секреты на устройстве.
-- [ ] Реализовать safe resume после прерывания.
-- [ ] Добавить Termux:API как optional feature.
-- [ ] Добавить Termux:Boot только как отдельный opt-in.
+- [ ] Real end-to-end test: ChatGPT write → push → Termux execute → result → ChatGPT read.
+- [ ] Recovery after device/network/process interruption.
+- [ ] Chunked transfer for large files.
+- [ ] Security audit and dependency review.
+- [ ] Release notes and verified beginner installation guide.
 
-**Критерий выхода:** установка с нуля и продолжение после искусственного прерывания проходят на чистом поддерживаемом устройстве.
-
-## Этап 5 — передача больших данных и release
-
-- [ ] Реализовать chunked transfer с hash/integrity checks, лимитами и TTL.
-- [ ] Провести полный end-to-end тест на отдельной тестовой инфраструктуре.
-- [ ] Добавить статический анализ и security checks.
-- [ ] Опубликовать release notes и проверенную инструкцию установки.
-
-## Не входит в обещания проекта
+## Не обещается
 
 - Гарантированный uptime 24/7 на Android.
 - Неограниченный бесплатный tunnel.
-- Постоянная GitHub авторизация без повторных подтверждений.
-- Автоматическая запись через read-only GitHub connector.
-- Выполнение произвольных команд без ограничений.
+- Root-доступ или обход Android sandbox.
+- Постоянная авторизация без возможности отзыва.
+- Возможность записи через read-only ChatGPT connector.

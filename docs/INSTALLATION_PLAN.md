@@ -1,70 +1,75 @@
 # План и текущий статус установки
 
-Первый экспериментальный bootstrap находится в `scripts/install.sh`. Он рассчитан на ARM64 Termux и уже умеет устанавливать локальный runtime, создавать отдельный private repo пользователя, загружать operational template, запускать listener и поднимать tunnl.gg SSH reverse tunnel. Скрипт ещё не прошёл полный end-to-end тест на чистом Android; до релиза его статус остаётся экспериментальным.
+Первый экспериментальный bootstrap находится в scripts/install.sh. Он рассчитан на native Termux ARM64. До релиза нужны clean install на отдельном устройстве/профиле и end-to-end проверка полного цикла команды.
 
-## Что нужно пользователю
+## Целевая архитектура
 
-- Android с поддерживаемой архитектурой (первый профиль — ARM64).
-- Termux из выбранного поддерживаемого источника.
-- GitHub account.
-- AI assistant и подтверждённый write-capable канал для mailbox (GitHub connector ChatGPT может быть read-only).
-- Сеть для GitHub и tunnl.gg SSH reverse tunnel.
+Реализация повторяет рабочий Termux Push Bridge и работает по push-событиям:
 
-### Android приложения и плагины
+1. GPT записывает push-bridge/command.json со статусом ready в приватный operational repository.
+2. Push запускает GitHub Actions.
+3. Actions checkout-ит точный commit, получает OIDC JWT и отправляет через tunnl.gg только событие с repository/ref/after/timestamp.
+4. Termux проверяет OIDC и событие, затем fetch-ит command.json по точному SHA.
+5. Termux выполняет bash -lc с timeout.
+6. Termux записывает result.json и подтверждает команду через GitHub Contents API.
+7. GPT читает result.json и при необходимости отправляет следующую команду новым push.
 
-1. **Termux** — обязателен.
-2. **Termux:API** — необязателен для базового Bridge. Нужен, если позднее включены Android-функции. Для работы требуются Android-приложение Termux:API и CLI package `termux-api` внутри Termux.
-3. **Termux:Boot** — необязателен. Нужен только если пользователь хочет попытаться запускать Bridge после перезагрузки Android. Не устанавливать и не включать без отдельного согласия.
+Termux не опрашивает GitHub и не делает запросы за заданиями по таймеру. Keepalive туннеля обращается только к собственному /health endpoint и не проверяет mailbox.
 
-Termux и все plugin APK должны быть из одного источника сборки/подписи. Не смешивать F-Droid и GitHub builds. Bootstrap не может незаметно установить Android APK-плагины.
+## Что делает install.sh
 
-## Что делает текущий install.sh
+1. Проверяет native Termux, ARM64 и интерактивную сессию.
+2. Устанавливает Python, cryptography, Git, GitHub CLI, curl, jq и OpenSSH.
+3. Клонирует публичный проект в отдельный каталог и создаёт Python venv.
+4. Проводит GitHub CLI browser/device authorization.
+5. Создаёт отдельный private operational repository пользователя.
+6. Загружает clean template с workflow, command.json, result.json и tunnel-url.txt.
+7. Настраивает OIDC audience termux-push-bridge, repository/ref, локальный state и listener port 18767.
+8. Генерирует отдельный Ed25519 SSH key для tunnl.gg.
+9. Помогает зарегистрировать ключ для stable URL.
+10. Запускает локальный listener и отдельный tunnel supervisor.
+11. Проверяет локальный и внешний /health.
+12. Записывает актуальный tunnel URL в push-bridge/tunnel-url.txt через GitHub CLI.
 
-1. Проверяет native Termux и ARM64.
-2. Устанавливает через `pkg` Python, Python cryptography, Git, GitHub CLI, curl, jq и OpenSSH.
-3. Клонирует публичный исходный проект в локальную папку приложения и создаёт отдельное Python venv с доступом к Termux-native cryptography package.
-4. Проводит пользователя через GitHub CLI browser authorization, если вход ещё не выполнен.
-5. Создаёт отдельный private repository в аккаунте пользователя и проверяет owner/visibility.
-6. Загружает только чистый operational template.
-7. Создаёт локальную конфигурацию с точными repository/ref/audience и persistent state path.
-8. Запускает локальный listener на loopback.
-9. Поднимает стабильный tunnl.gg reverse tunnel через OpenSSH, проверяет внешний `/health` и публикует URL в Actions variable `BRIDGE_TUNNEL_URL`.
-10. Создаёт отдельный локальный Ed25519-ключ, проводит однократную регистрацию stable URL и не включает Termux:Boot.
+Повторный запуск должен безопасно продолжать установку, не создавать лишние репозитории и не затрагивать другие Bridge установки.
 
-## Permissions GitHub Actions\n\nТекущий workflow использует `contents: write` и `id-token: write`. Запись необходима, потому что сам workflow публикует `mailbox/result.json` обратно в приватный operational repository. `id-token: write` нужен для получения краткоживущего GitHub Actions OIDC JWT. Не описывай текущую схему как `contents: read`: это сломает публикацию результата.\n\n## Секреты и конфигурация
+## GitHub authorization
 
-- Публичный репозиторий никогда не получает пользовательские секреты.
-- Private operational repository содержит только workflow и mailbox.
-- GitHub CLI credential хранится самим GitHub CLI.
-- OIDC JWT краткоживущий, запрашивается workflow на каждый запуск и не сохраняется как постоянный секрет.
-- Для stable URL tunnl.gg нужен отдельный зарегистрированный Ed25519-ключ; private key остаётся на Android.
-- Локальный конфиг и replay state хранятся вне Git с ограниченными правами.
-- Не выводить credential или private key в логи и диагностику.
+GitHub CLI credential остаётся под управлением gh. Bridge получает его в память через gh auth token, чтобы fetch-ить command.json и публиковать result.json/command acknowledgement. Credential не копируется в config.json, не передаётся в webhook и не выводится в лог.
 
-## Idempotency / resume
+GitHub CLI authorization должна иметь Contents read/write в личном operational repo. GitHub Actions workflow использует только:
+- contents: read — checkout приватного operational repository;
+- id-token: write — получение короткоживущего OIDC JWT с audience termux-push-bridge.
 
-- Повторный запуск должен сохранять локальную конфигурацию и не создавать новый private repo.
-- Установочный state фиксирует repository, чтобы продолжить создание после прерывания.
-- При обновлении исходников используется fast-forward; локальные изменения не должны молча затираться.
-- Не перезаписывать чужой repository или неизвестные Termux файлы.
-- Полная проверка восстановления на чистом устройстве ещё не завершена.
+Не путать локальную GitHub CLI authorization с OIDC токеном Actions.
 
-## Авторизация
+## OIDC и event validation
 
-Предпочтительно использовать GitHub CLI browser/device auth. Не создавать PAT вручную и не передавать credential в чат. Разделять GitHub CLI user auth и Actions OIDC. Не обещать бессрочную авторизацию.
+Listener проверяет RS256/JWKS, issuer, audience, точные repository/ref, event_name=push, exp/iat/nbf и jti. В теле события проверяются repository/ref, 40-символьный commit SHA и timestamp. Команда загружается по точному SHA события, а не по изменяемому HEAD ветки.
+
+## Shell execution
+
+Команда выполняется через bash -lc в HOME Termux. Поддерживаются stdout, stderr, exit code и timeout от 1 до 3600 секунд. Максимальная длина команды — 20 000 символов. Это полноценное исполнение в рамках Android app sandbox, не root и не отдельная sandbox-среда.
+
+Доступ на запись в push-bridge/command.json фактически даёт право выполнять команды от имени пользователя Termux. Operational repo обязан быть private.
 
 ## Tunnel
 
-Первый provider — tunnl.gg поверх OpenSSH. Используется `stable@proxy.tunnl.gg` с отдельным зарегистрированным Ed25519-ключом. URL сохраняется при переподключениях. Бесплатный режим ограничен 3 туннелями на IP, 5 GB/сутки, 2 часами без HTTP-активности и 24 часами на сессию. Supervisor переподключает SSH и делает `/health` ping каждые 55 минут. Подробности — в `docs/TUNNEL.md`.
+Используется tunnl.gg reverse SSH tunnel с отдельным Ed25519 ключом на каждую установку. URL хранится в push-bridge/tunnel-url.txt. Supervisor переподключается после обрыва; health ping раз в 55 минут нужен только для поддержания туннеля. Публичный tunnel URL не является паролем.
 
-Для произвольного имени поддомена у tunnl.gg нужен Pro; bootstrap использует бесплатный stable URL.
+## Проверки перед релизом
 
-## Что ещё проверить перед релизом
+- clean install на чистом Termux ARM64;
+- GitHub browser authorization и private repo creation;
+- создание mailbox и workflow;
+- отдельная регистрация tunnl.gg SSH key;
+- OIDC event проходит на реальный listener;
+- команда загружается по SHA события;
+- shell выполняет команду, timeout и non-zero exit отражаются правильно;
+- Termux публикует result.json и ack;
+- GPT может прочитать результат и отправить следующую команду;
+- replay, wrong repo/ref, stale event и concurrent command отклоняются;
+- reconnect туннеля не создаёт дублирующих исполнений;
+- пользовательский рабочий Bridge и его ключи/порт остаются нетронутыми.
 
-- Установка с нуля на чистом Termux ARM64.
-- Наличие `python-cryptography` и `OpenSSH` в конкретном Termux package source.
-- Реальный GitHub device/browser login и создание private repo.
-- Полный цикл команды от изменения mailbox до terminal result.
-- Повтор команды после потери HTTP ответа и recovery после аварийного завершения.
-- Поведение при остановке Android фоновых процессов и переподключении stable tunnl.gg URL.
-- Безопасное управление start/stop/status и opt-in для Termux:Boot.
+До завершения этих проверок проект остаётся experimental.

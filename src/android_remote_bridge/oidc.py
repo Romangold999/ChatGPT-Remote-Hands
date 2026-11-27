@@ -1,4 +1,4 @@
-"""GitHub Actions OIDC verification for the local webhook."""
+"""Strict GitHub Actions OIDC verification for push-triggered events."""
 from __future__ import annotations
 
 import time
@@ -20,12 +20,11 @@ class OIDCPolicy:
     audience: str
     repository: str
     ref: str
+    event_name: str = "push"
     leeway_seconds: int = 30
 
 
 class GitHubOIDCVerifier:
-    """Verify GitHub Actions ID tokens against GitHub's published JWKS."""
-
     def __init__(self, policy: OIDCPolicy) -> None:
         if not policy.audience or not policy.repository or not policy.ref:
             raise ValueError("OIDC audience, repository and ref must be configured")
@@ -44,18 +43,22 @@ class GitHubOIDCVerifier:
                 audience=self.policy.audience,
                 issuer=ISSUER,
                 leeway=self.policy.leeway_seconds,
-                options={"require": ["exp", "iat", "iss", "aud", "jti", "repository", "ref"]},
+                options={"require": ["exp", "iat", "iss", "aud", "jti", "repository", "ref", "event_name"]},
             )
         except Exception as exc:
-            # JWKS/network failures are authentication failures too; never fail open.
             raise AuthenticationError("OIDC token verification failed") from exc
+
         if claims.get("repository") != self.policy.repository:
             raise AuthenticationError("OIDC repository claim mismatch")
         if claims.get("ref") != self.policy.ref:
             raise AuthenticationError("OIDC ref claim mismatch")
+        if claims.get("event_name") != self.policy.event_name:
+            raise AuthenticationError("OIDC event claim mismatch")
         if not isinstance(claims.get("jti"), str) or not claims["jti"]:
             raise AuthenticationError("OIDC token has no jti")
         now = int(time.time())
         if claims.get("iat", now + 1) > now + self.policy.leeway_seconds:
             raise AuthenticationError("OIDC token issued in the future")
+        if claims.get("nbf", 0) > now + self.policy.leeway_seconds:
+            raise AuthenticationError("OIDC token is not active yet")
         return claims

@@ -1,53 +1,56 @@
-"""Small, non-shell operation executor."""
+"""Execute a user-authorized shell command in the Termux environment."""
 from __future__ import annotations
 
-import os
-import platform
-import time
+import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .protocol import Command
 
-
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+MAX_OUTPUT_CHARS = 100_000
 
 
 def execute(command: Command) -> dict[str, Any]:
-    """Execute only built-in operations; never invokes a shell or subprocess."""
-    started = _utc_now()
-    start_clock = time.monotonic()
+    """Run bash -lc with a hard timeout and bounded result output."""
+    started = datetime.now(timezone.utc).isoformat()
+    status = "error"
+    exit_code = 1
+    stdout = ""
+    stderr = ""
+    error = None
     try:
-        if command.operation == "bridge.status":
-            output = {"status": "running"}
-        elif command.operation == "bridge.health":
-            output = {"status": "ok", "python": platform.python_version()}
-        elif command.operation == "system.info":
-            output = {
-                "system": platform.system(),
-                "release": platform.release(),
-                "machine": platform.machine(),
-                "python": platform.python_version(),
-                "pid": os.getpid(),
-            }
-        else:  # Defense in depth: protocol parser should already reject this.
-            raise ValueError("operation is not implemented")
-        status, error, exit_code = "completed", None, 0
+        completed = subprocess.run(
+            ["bash", "-lc", command.command],
+            cwd=str(Path.home()),
+            capture_output=True,
+            text=True,
+            timeout=command.timeout_seconds,
+            check=False,
+        )
+        exit_code = completed.returncode
+        status = "completed" if exit_code == 0 else "failed"
+        stdout = (completed.stdout or "")[-MAX_OUTPUT_CHARS:]
+        stderr = (completed.stderr or "")[-MAX_OUTPUT_CHARS:]
+    except subprocess.TimeoutExpired as exc:
+        status = "timeout"
+        exit_code = 124
+        stdout = str(exc.stdout or "")[-MAX_OUTPUT_CHARS:]
+        stderr = str(exc.stderr or "")[-MAX_OUTPUT_CHARS:]
+        error = f"Timeout after {command.timeout_seconds} seconds"
     except Exception as exc:
-        output, status, error, exit_code = {}, "failed", type(exc).__name__, 1
-    elapsed = time.monotonic() - start_clock
-    if elapsed > command.timeout_seconds:
-        output, status, error, exit_code = {}, "failed", "timeout", 124
+        status = "error"
+        error = f"{type(exc).__name__}: {str(exc)[:1000]}"
+    finished = datetime.now(timezone.utc).isoformat()
     return {
         "version": 1,
         "id": command.command_id,
         "sequence": command.sequence,
         "status": status,
         "started_at": started,
-        "finished_at": _utc_now(),
-        "duration_seconds": round(elapsed, 3),
+        "finished_at": finished,
         "exit_code": exit_code,
-        "data": output,
+        "stdout": stdout,
+        "stderr": stderr,
         "error": error,
     }

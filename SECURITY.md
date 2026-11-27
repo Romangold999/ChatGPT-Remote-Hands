@@ -1,43 +1,46 @@
 # Security policy and secret-handling rules
 
-## Public repository: never store secrets
+## Public repository
 
-This repository is public and must contain only generic source code, clean templates, documentation and tests. Never commit or upload:
+This public repository may contain only generic source code, clean templates, documentation and tests. Never commit:
 - GitHub PATs, OAuth credentials, cookies or OIDC JWTs;
 - passwords, HMAC secrets, SSH private keys or tunnel credentials;
-- personal configuration files, personal tunnel URLs, logs or command results;
+- personal configuration files, private tunnel URLs, logs or command results;
 - user-specific identifiers or data copied from a reference installation.
-
-Do not put real-looking credentials in examples. Use clearly fake placeholders only. Secret scanning and a pre-publication audit are required before releases.
 
 ## Per-user installation
 
-- Bootstrap creates local configuration and persistent replay state on the user's Android device. Any future provider-specific private keys must be generated locally and never leave the device.
-- The first provider is tunnl.gg over OpenSSH. Each installation uses its own registered Ed25519 key; the private key stays on the Android device.
-- GitHub CLI stores its own authentication locally. Never print or export its credential.
-- Local secret files must be excluded from Git and protected with restrictive permissions (0600 where applicable).
-- Each user gets a separate private operational repository. Keep it free of private keys, PAT/OAuth credentials, HMAC secrets and long-lived bearer tokens.
-- GitHub Actions obtains a short-lived OIDC token for each run; do not persist it as a repository secret.
-
-## Termux plugins
-
-- Termux:API is optional. If Android API features are enabled, install both the Termux:API Android plugin and the `termux-api` CLI package inside Termux.
-- Termux:Boot is optional and opt-in only. Never create boot scripts, enable wake locks or configure automatic startup without explicit user consent.
-- Termux and all plugins must come from the same signing source. Do not mix F-Droid and GitHub APK builds.
+- Each installation has its own private operational repository.
+- GitHub CLI credentials are stored by GitHub CLI on the device. Bridge obtains the credential in memory with gh auth token; it is not copied into the Bridge config or logged.
+- Every installation generates a dedicated Ed25519 key. Its private key never leaves Android.
+- Local config and replay state are outside Git and use restrictive permissions.
+- GitHub Actions obtains a short-lived OIDC JWT for each push event. The JWT is not persisted as a repository secret.
+- The private operational repository must remain private. Any account or integration with write access to push-bridge/command.json has the ability to execute shell commands as the Termux user.
 
 ## Runtime security
 
-- Use least-privilege GitHub Actions permissions.
-- OIDC validation must verify signature, issuer, audience, repository, ref, timestamps and replay protection.
-- Never trust decoded JWT claims without signature verification.
-- Redact secrets from stdout, stderr, logs and diagnostics.
-- Restrict shell execution; use explicit safe mode/allowlist by default.
-- Require explicit user approval for destructive or high-risk operations.
-- Do not expose the local listener directly to the public internet; use the configured tunnel.
-- A stable tunnl.gg URL is public and must not be treated as a password. The webhook must always validate the short-lived OIDC token and exact repository/ref claims.
-- The unauthenticated `/health` response must contain no configuration, secrets or device details.
+- OIDC validation verifies RS256 signature, issuer, audience, exact repository, exact ref, push event type, time claims and required jti.
+- The event includes an exact commit SHA. Termux fetches the command from that SHA rather than trusting a mutable branch head.
+- Replay protection and sequence checks are persisted locally.
+- Commands are serialized; a second command is rejected while one is running.
+- Shell execution is intentionally full-featured and runs as the Termux user. It is not a sandbox and does not provide privilege escalation beyond Android/Termux permissions.
+- Treat write access to the private mailbox as device command authority. Protect the GitHub account and connected ChatGPT integration accordingly.
+- Do not expose the listener directly to the internet; use the pinned tunnl.gg SSH reverse tunnel.
+- /health returns no configuration or device details.
 - Pin third-party Actions to immutable commit SHAs.
-- Keep mailbox concurrency serialized.
-- Explain that user auth can be revoked; no credential is guaranteed forever.
-- Android background execution and third-party tunnel availability are not guaranteed.
-- Free tunnl.gg sessions have a 2-hour idle timeout, 24-hour maximum lifetime, 5 GB/day transfer cap and 3 concurrent tunnels per IP. Android background execution is not guaranteed.
+- Redact credentials from logs and diagnostics.
+
+## Optional Android integration
+
+- Termux:API is optional and requires both the Android plugin and the Termux CLI package.
+- Termux:Boot is optional and must be explicitly enabled by the user; never install or enable it silently.
+- Termux and plugins must come from the same signing source.
+
+## Service limitations
+
+- Android may stop background processes; 24/7 availability is not guaranteed.
+- The free tunnl.gg tier has service-side limits (idle timeout, maximum session length, traffic and concurrent tunnels).
+- tunnl.gg terminates TLS at its edge; do not treat it as end-to-end encryption to the device.
+- Users can revoke GitHub CLI authorization or remove repository access at any time.
+
+Report security issues privately to the repository owner. Do not publish credentials or exploit details in public issues.

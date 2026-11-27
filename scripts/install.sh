@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 REPO_URL="https://github.com/Romangold999/ChatGPT-Remote-Hands.git"
+SOURCE_REF="${ANDROID_REMOTE_BRIDGE_REF:-main}"
 APP_ROOT="${HOME}/.local/share/android-remote-bridge"
 SOURCE_DIR="${APP_ROOT}/source"
 VENV_DIR="${APP_ROOT}/venv"
@@ -32,9 +33,9 @@ pkg install -y python python-pip python-ensurepip-wheels python-cryptography git
 
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   [[ ! -e "$SOURCE_DIR" ]] || die "Source path exists but is not a Git checkout: $SOURCE_DIR"
-  git clone --depth 1 "$REPO_URL" "$SOURCE_DIR"
+  git clone --depth 1 --single-branch --branch "$SOURCE_REF" "$REPO_URL" "$SOURCE_DIR"
 else
-  git -C "$SOURCE_DIR" fetch --depth 1 origin main
+  git -C "$SOURCE_DIR" fetch --depth 1 origin "$SOURCE_REF"
   git -C "$SOURCE_DIR" merge --ff-only FETCH_HEAD
 fi
 
@@ -53,7 +54,9 @@ gh auth status --hostname github.com >/dev/null 2>&1 || die "GitHub CLI authoriz
 OWNER="$(gh api user --jq .login)"
 [[ -n "$OWNER" ]] || die "Could not determine the authenticated GitHub owner."
 
+EXISTING_CONFIG=0
 if [[ -f "$CONFIG_FILE" ]]; then
+  EXISTING_CONFIG=1
   FULL_REPO="$("$VENV_DIR/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["repository"])' "$CONFIG_FILE")"
   [[ "$FULL_REPO" == "$OWNER/"* ]] || die "Existing local config belongs to a different GitHub owner."
   REPO_NAME="${FULL_REPO#*/}"
@@ -90,19 +93,21 @@ else
     || die "Could not clone the private operational repository; rerun the installer to resume."
   WORK_REPO="$TEMP_REPO/repo"
   if ! git -C "$WORK_REPO" rev-parse --verify HEAD >/dev/null 2>&1; then
-    git -C "$WORK_REPO" checkout -B main
-  elif [[ "$(git -C "$WORK_REPO" branch --show-current)" != "main" ]]; then
-    git -C "$WORK_REPO" checkout -B main
+    git -C "$WORK_REPO" checkout -B push-bridge
+  elif [[ "$(git -C "$WORK_REPO" branch --show-current)" != "push-bridge" ]]; then
+    git -C "$WORK_REPO" checkout -B push-bridge
   fi
   cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
+  mkdir -p "$WORK_REPO/.github/workflows"
+  cp -f "$SOURCE_DIR/templates/operational-repo/.github/workflows/push-bridge.yml" "$WORK_REPO/.github/workflows/push-bridge.yml"
   git -C "$WORK_REPO" config user.name "Android Remote Bridge Installer"
   git -C "$WORK_REPO" config user.email "$OWNER@users.noreply.github.com"
   git -C "$WORK_REPO" add -A
   if ! git -C "$WORK_REPO" diff --cached --quiet; then
     git -C "$WORK_REPO" commit -m "Initialize personal Android Remote Bridge mailbox"
   fi
-  git -C "$WORK_REPO" push -u origin main
-  gh repo edit "$FULL_REPO" --default-branch main
+  git -C "$WORK_REPO" push -u origin push-bridge
+  gh repo edit "$FULL_REPO" --default-branch push-bridge
   rm -rf "$TEMP_REPO"
   trap - EXIT
 
@@ -114,9 +119,9 @@ from pathlib import Path
 
 target = Path(sys.argv[1])
 data = {
-    "audience": "termux-bridge",
+    "audience": "termux-push-bridge",
     "repository": sys.argv[2],
-    "ref": "refs/heads/main",
+    "ref": "refs/heads/push-bridge",
     "state_file": sys.argv[3],
     "port": 18767,
     "tunnel_key": str(Path.home() / ".ssh" / "android-remote-bridge_ed25519"),
@@ -129,9 +134,66 @@ temporary.replace(target)
 PY
 fi
 
+# Migrate an earlier experimental local config to the push-event protocol.
+"$VENV_DIR/bin/python" - "$CONFIG_FILE" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+target = Path(sys.argv[1])
+data = json.loads(target.read_text(encoding="utf-8"))
+data["audience"] = "termux-push-bridge"
+data["ref"] = "refs/heads/push-bridge"
+data["port"] = 18767
+temporary = target.with_suffix(".tmp")
+temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+os.chmod(temporary, 0o600)
+temporary.replace(target)
+PY
+
 REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
 REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
 [[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] || die "The operational repository owner or visibility check failed."
+
+if [[ "$EXISTING_CONFIG" == "1" ]]; then
+  say "Migrating the existing private repository to the push-bridge mailbox layout..."
+  gh auth setup-git
+  TEMP_REPO="$(mktemp -d "${TMPDIR:-$PREFIX/tmp}/arb-migrate.XXXXXX")"
+  cleanup_migration() { rm -rf "$TEMP_REPO"; }
+  trap cleanup_migration EXIT
+  git clone "https://github.com/$FULL_REPO.git" "$TEMP_REPO/repo" \
+    || die "Could not clone the existing private operational repository."
+  WORK_REPO="$TEMP_REPO/repo"
+
+  for pending_file in "$WORK_REPO/mailbox/command.json" "$WORK_REPO/push-bridge/command.json"; do
+    if [[ -f "$pending_file" ]] && jq -e '.status == "pending" or .status == "ready"' "$pending_file" >/dev/null; then
+      die "A command is still pending in the existing operational repository. Wait for its result before upgrading."
+    fi
+  done
+
+  if git -C "$WORK_REPO" ls-remote --exit-code --heads origin push-bridge >/dev/null 2>&1; then
+    git -C "$WORK_REPO" fetch origin push-bridge
+    git -C "$WORK_REPO" checkout -B push-bridge origin/push-bridge
+  elif git -C "$WORK_REPO" rev-parse --verify HEAD >/dev/null 2>&1; then
+    git -C "$WORK_REPO" checkout -B push-bridge
+  else
+    git -C "$WORK_REPO" checkout --orphan push-bridge
+  fi
+
+  cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
+  mkdir -p "$WORK_REPO/.github/workflows"
+  cp -f "$SOURCE_DIR/templates/operational-repo/.github/workflows/push-bridge.yml" "$WORK_REPO/.github/workflows/push-bridge.yml"
+  git -C "$WORK_REPO" config user.name "Android Remote Bridge Installer"
+  git -C "$WORK_REPO" config user.email "$OWNER@users.noreply.github.com"
+  git -C "$WORK_REPO" add -A
+  if ! git -C "$WORK_REPO" diff --cached --quiet; then
+    git -C "$WORK_REPO" commit -m "Migrate private operational repo to push-bridge protocol"
+  fi
+  git -C "$WORK_REPO" push -u origin push-bridge
+  gh repo edit "$FULL_REPO" --default-branch push-bridge
+  rm -rf "$TEMP_REPO"
+  trap - EXIT
+fi
 
 say "Preparing your personal tunnl.gg SSH identity..."
 SSH_DIR="$HOME/.ssh"

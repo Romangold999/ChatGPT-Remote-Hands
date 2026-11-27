@@ -6,6 +6,7 @@ own Ed25519 key; the private key never leaves the Android device.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -51,6 +52,7 @@ def _paths(config: dict[str, Any]) -> tuple[Path, Path, Path, Path, Path]:
 
 
 def _publish_url(repository: str, url: str) -> None:
+    """Publish the stable URL as push-bridge/tunnel-url.txt, as in the reference Bridge."""
     if not shutil.which("gh"):
         raise TunnelError("GitHub CLI (gh) is not installed")
     check = subprocess.run(
@@ -61,24 +63,41 @@ def _publish_url(repository: str, url: str) -> None:
     )
     if check.returncode:
         raise TunnelError("GitHub CLI is not authenticated; run gh auth login first")
+    path = "push-bridge/tunnel-url.txt"
+    lookup = subprocess.run(
+        ["gh", "api", f"repos/{repository}/contents/{path}?ref=push-bridge"],
+        capture_output=True, text=True, check=False,
+    )
+    if lookup.returncode != 0 or not lookup.stdout.strip():
+        raise TunnelError("could not read push-bridge/tunnel-url.txt in the private repository")
+    try:
+        current = json.loads(lookup.stdout)
+        current_url = base64.b64decode(current.get("content", "")).decode("utf-8").strip()
+        current_sha = current["sha"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise TunnelError("private repository returned an invalid tunnel URL file") from exc
+    if current_url == url.rstrip("/"):
+        return
+    encoded = base64.b64encode((url.rstrip("/") + "\n").encode("utf-8")).decode("ascii")
     result = subprocess.run(
-        ["gh", "variable", "set", "BRIDGE_TUNNEL_URL", "--repo", repository, "--body", url],
+        [
+            "gh", "api", f"repos/{repository}/contents/{path}", "--method", "PUT",
+            "-f", "message=Update stable tunnl.gg URL",
+            "-f", f"content={encoded}",
+            "-f", f"sha={current_sha}",
+            "-f", "branch=push-bridge",
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
     )
     if result.returncode:
-        raise TunnelError("could not publish BRIDGE_TUNNEL_URL to the private repository")
+        raise TunnelError("could not publish stable URL to push-bridge/tunnel-url.txt")
 
 
 def _delete_published_url(repository: str) -> None:
-    if shutil.which("gh"):
-        subprocess.run(
-            ["gh", "variable", "delete", "BRIDGE_TUNNEL_URL", "--repo", repository],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+    # Keep the last stable URL in the mailbox, matching the working push-bridge.
+    return
 
 
 def _prepare_known_hosts(path: Path) -> None:

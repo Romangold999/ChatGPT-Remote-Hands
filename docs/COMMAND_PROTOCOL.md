@@ -1,79 +1,93 @@
-# Протокол команд mailbox
+# Протокол push-mailbox (совместим с Termux Push Bridge)
 
-Протокол v1 определяет JSON envelope, который GitHub Actions передаёт локальному listener. Валидатор, OIDC-проверка, replay state и исполнитель являются отдельными слоями.
+## Принцип работы
+
+Bridge получает команды по push-событиям GitHub Actions.
+
+1. GPT записывает push-bridge/command.json со статусом ready в личный private operational repository.
+2. Push в ветке push-bridge по пути push-bridge/command.json запускает GitHub Actions.
+3. Workflow checkout-ит точный commit SHA, получает короткоживущий GitHub Actions OIDC JWT с audience termux-push-bridge и отправляет на туннель только событие: repository, ref, after (SHA коммита), timestamp.
+4. Termux проверяет JWT и событие, затем сам один раз получает command.json из GitHub по точному SHA события.
+5. Termux выполняет bash -lc с командой в домашнем каталоге Termux с заданным timeout.
+6. Termux публикует push-bridge/result.json через GitHub Contents API и меняет статус команды с ready на конечный статус.
+7. GPT читает result.json, проверяет id и sequence, анализирует stdout/stderr/exit code и при необходимости отправляет следующую команду новым push-событием.
+
+Webhook отвечает 202 Accepted сразу после постановки команды в локальный worker. Это означает только принятие события, а не завершение команды. GitHub Actions не ждёт shell-команду и не публикует результат вместо Termux.
 
 ## Файлы приватного operational repository
 
-- `mailbox/command.json` — входящая команда.
-- `mailbox/result.json` — результат последней команды.
-- Actions variable `BRIDGE_TUNNEL_URL` — текущий HTTPS tunnel endpoint конкретного пользователя.
+- push-bridge/command.json — входящая команда и её статус.
+- push-bridge/result.json — результат последней команды.
+- push-bridge/tunnel-url.txt — текущий стабильный HTTPS endpoint tunnl.gg.
+- .github/workflows/push-bridge.yml — push-triggered event dispatcher.
 
-## Envelope версии 1
+## Формат команды v1
 
-Обязательные поля:
+~~~json
+{
+  "version": 1,
+  "id": "unique-command-id-001",
+  "sequence": 1,
+  "status": "ready",
+  "operation": "shell",
+  "approval": "not_required",
+  "timeout_seconds": 300,
+  "command": "pwd && ls -la"
+}
+~~~
 
-| Поле | Тип | Правило |
-|---|---|---|
-| `version` | integer | строго `1` |
-| `id` | string | canonical UUID |
-| `sequence` | integer | положительное число; следующий ожидаемый номер |
-| `operation` | string | только операция из allowlist |
+Правила:
+- version: строго integer 1.
+- id: непустая строка до 120 символов, только буквы, цифры, _, ., :, -.
+- sequence: положительное целое число, строго следующее после последнего выполненного.
+- status: новая команда должна иметь значение ready.
+- operation: строго shell.
+- command: полноценная shell-команда для Bash, не более 20 000 символов.
+- timeout_seconds: от 1 до 3600, по умолчанию 300.
+- approval: not_required или approved. Это декларация состояния согласования, а не самостоятельный механизм подтверждения.
 
-Дополнительные поля:
+## Формат результата
 
-| Поле | Тип | Правило |
-|---|---|---|
-| `status` | string | для новой команды только `pending` |
-| `arguments` | object | в текущей версии операции не принимают аргументы |
-| `approval` | boolean | по умолчанию `false`; само по себе не подтверждает опасное действие |
-| `timeout_seconds` | integer | от 1 до 60; по умолчанию 10 |
+~~~json
+{
+  "version": 1,
+  "id": "unique-command-id-001",
+  "sequence": 1,
+  "status": "completed",
+  "started_at": "2026-01-01T12:00:00+00:00",
+  "finished_at": "2026-01-01T12:00:01+00:00",
+  "exit_code": 0,
+  "stdout": "…",
+  "stderr": "",
+  "error": null
+}
+~~~
 
-Лимит входного JSON envelope — 16 KiB. Неизвестные поля отклоняются.
+status может быть completed, failed, timeout или error. Stdout и stderr ограничиваются последними 100 000 символами каждый. Для передачи больших файлов нужен отдельный потоковый протокол; не помещай бинарные файлы в JSON mailbox.
 
-### Начальный allowlist
+## Аутентификация и защита от повторов
 
-- `bridge.status`
-- `bridge.health`
-- `system.info`
+Listener проверяет:
+1. RS256-подпись JWT по опубликованному GitHub JWKS.
+2. Issuer https://token.actions.githubusercontent.com.
+3. Audience termux-push-bridge.
+4. Точные claims repository, ref и event_name=push.
+5. exp, iat, nbf и обязательный jti.
+6. Поля события: repository/ref совпадают с локальным конфигом, SHA имеет формат 40 hex, timestamp не старше часа.
 
-Эти три операции реализованы без вызова shell или subprocess. Произвольное поле `command`, shell-строка и операция `shell.exec` не поддерживаются. Новая операция добавляется только вместе с реализацией, схемой аргументов, тестами, документацией и security review.
+Локальный persistent state защищает от повторного jti, повторного ID с другим payload и неправильного sequence. Команды сериализуются: пока выполняется одна команда, следующая получает HTTP 409. Повтор того же ID/sequence/payload после сохранения результата не запускает shell повторно; можно повторно опубликовать сохранённый результат.
 
-## OIDC и mailbox gates
+## GitHub credentials
 
-Перед исполнением listener:
+Actions нужен только contents: read для checkout private repo и id-token: write для короткоживущего OIDC JWT. Termux использует локальную авторизацию GitHub CLI (gh auth token) для чтения команды и записи результата/ack в private repo. Токен не передаётся в webhook, не сохраняется в конфиге Bridge и не печатается в логах. GitHub CLI должен иметь Contents read/write для operational repo.
 
-1. Проверяет JWT подпись по GitHub JWKS и алгоритм RS256.
-2. Проверяет issuer `https://token.actions.githubusercontent.com`, audience `termux-bridge`, временные claims.
-3. Сверяет точные `repository` и `ref` с локальной конфигурацией пользователя.
-4. Проверяет обязательный `jti` и сохраняет его в persistent replay state.
-5. Проверяет, что sequence — следующий ожидаемый номер.
-6. Парсит envelope и допускает только allowlist.
+## Граница доверия
 
-Локальный HTTP listener привязан к `127.0.0.1:18767`; внешний доступ должен идти через HTTPS tunnel. Этот порт выделен для публичной версии Bridge и не должен пересекаться с другими локальными установками. Listener не принимает произвольные команды.
+Полноценный shell — это реальное выполнение команд от имени пользователя Termux. Любой, кто может записать push-bridge/command.json в private operational repo, получает возможность запускать команды на устройстве. Поэтому:
+- operational repo обязан быть private;
+- доступ на запись выдавай только доверенному пользователю/интеграции;
+- не публикуй tunnel URL как секрет — безопасность обеспечивает OIDC;
+- не помещай команды с секретами в публичные issue/PR;
+- не запускай опасные или разрушающие действия без отдельного согласия пользователя.
 
-## Результат
-
-Workflow сохраняет в `mailbox/result.json` JSON-объект с полями:
-
-- `version`
-- `id`
-- `sequence`
-- `status` (`completed` или `failed`)
-- `started_at`
-- `finished_at`
-- `duration_seconds`
-- `exit_code`
-- `data`
-- `error`
-
-Перед публикацией workflow проверяет, что ответ содержит структурированный result. Клиент должен дополнительно сверить ID и sequence с исходной командой.
-
-## Ограничения текущей реализации
-
-- Одна команда за раз; workflow concurrency сериализует dispatch.
-- Persistent state защищает от повторного jti и неправильного sequence.
-- Если workflow не получил ответ после исполнения, повтор той же команды с новым OIDC token возвращает сохранённый terminal result по совпадающим command ID, sequence и SHA-256 исходного payload без повторного исполнения. Повторный jti отклоняется. Если процесс завершился до сохранения результата, listener fail-closed; автоматического повторного исполнения нет.
-- Timeout envelope не даёт права на произвольный долгий процесс; текущие операции — короткие встроенные функции.
-- Для больших файлов требуется отдельный chunked transfer с SHA-256, порядком частей, лимитом размера и TTL.
-
-HTTP 200 означает, что listener вернул результат. Успешный workflow сам по себе не заменяет проверку содержимого `mailbox/result.json`.
+Listener слушает только 127.0.0.1:18767. Внешний доступ идёт через tunnl.gg reverse SSH tunnel.

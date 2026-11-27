@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,28 @@ class ReplayState:
                 "last_command_hash": None,
                 "last_result": None,
             })
+        self._recover_interrupted()
+
+    def _recover_interrupted(self) -> None:
+        """Record an interrupted command after a process restart; never rerun it."""
+        with self._lock:
+            data = self._read()
+            if data["last_sequence"] < 1 or not data.get("last_command_id") or data.get("last_result") is not None:
+                return
+            finished = datetime.now(timezone.utc).isoformat()
+            data["last_result"] = {
+                "version": 1,
+                "id": data["last_command_id"],
+                "sequence": data["last_sequence"],
+                "status": "interrupted",
+                "started_at": None,
+                "finished_at": finished,
+                "exit_code": 125,
+                "stdout": "",
+                "stderr": "",
+                "error": "Bridge restarted while the command was running; the command was NOT rerun.",
+            }
+            self._write(data)
 
     def _read(self) -> dict[str, Any]:
         try:
@@ -76,8 +99,8 @@ class ReplayState:
                 self._write(data)
                 return cached
 
-            if sequence != data["last_sequence"] + 1:
-                raise StateError("command sequence is not the next expected value")
+            if sequence <= data["last_sequence"]:
+                raise StateError("command sequence is not newer than the last completed command")
 
             seen.append(jti)
             data["seen_jti"] = seen[-10_000:]
@@ -100,7 +123,7 @@ class ReplayState:
                 raise StateError("result does not match the active command")
             if result.get("id") != command_id or result.get("sequence") != sequence:
                 raise StateError("result identity does not match the active command")
-            if result.get("status") not in {"completed", "failed"}:
+            if result.get("status") not in {"completed", "failed", "timeout", "error", "interrupted"}:
                 raise StateError("only terminal results can be persisted")
             data["last_result"] = result
             self._write(data)

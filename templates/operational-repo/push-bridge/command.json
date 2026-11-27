@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "setup-placeholder",
+  "sequence": 0,
+  "status": "idle",
+  "operation": "shell",
+  "approval": "not_required",
+  "timeout_seconds": 300,
+  "command": "echo 'Bridge is ready'"
+}
