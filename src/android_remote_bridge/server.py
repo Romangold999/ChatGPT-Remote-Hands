@@ -31,8 +31,8 @@ from .state import ReplayState, StateError
 LOG = logging.getLogger("android_remote_bridge")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-COMMAND_PATH = "mailbox/command.json"
-RESULT_PATH = "mailbox/result.json"
+COMMAND_PATH = "push-bridge/command.json"
+RESULT_PATH = "push-bridge/result.json"
 
 
 class BridgeError(RuntimeError):
@@ -298,13 +298,13 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("config audience must be termux-push-bridge")
     if not REPOSITORY_PATTERN.fullmatch(data["repository"]):
         raise ValueError("config repository must be OWNER/REPOSITORY")
-    if data["ref"] != "refs/heads/main":
-        raise ValueError("config ref must be refs/heads/main")
+    if data["ref"] != "refs/heads/push-bridge":
+        raise ValueError("config ref must be refs/heads/push-bridge")
     port = data.get("port", 18767)
     if isinstance(port, bool) or not isinstance(port, int) or not 1024 <= port <= 65535:
         raise ValueError("config port must be an integer between 1024 and 65535")
     data["port"] = port
-    data["branch"] = "main"
+    data["branch"] = "push-bridge"
     return data
 
 
