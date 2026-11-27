@@ -40,20 +40,28 @@ class StateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "state.json"
             state = ReplayState(path)
-            first = state.accept(sequence=1, jti="token-1", command_id=COMMAND_ID)
+            first = state.accept(
+                sequence=1, jti="token-1", command_id=COMMAND_ID, command_hash="hash-1"
+            )
             self.assertIsNone(first)
             result = {"id": COMMAND_ID, "sequence": 1, "status": "completed"}
             state.complete(sequence=1, command_id=COMMAND_ID, result=result)
             self.assertEqual(
-                ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID),
+                ReplayState(path).accept(
+                    sequence=1, jti="token-2", command_id=COMMAND_ID, command_hash="hash-1"
+                ),
                 result,
             )
             with self.assertRaises(StateError):
                 ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID)
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=3, jti="token-3", command_id="future-id")
+                ReplayState(path).accept(
+                    sequence=3, jti="token-3", command_id="future-id", command_hash="hash-3"
+                )
             self.assertIsNone(
-                ReplayState(path).accept(sequence=2, jti="token-3", command_id="next-id")
+                ReplayState(path).accept(
+                    sequence=2, jti="token-3", command_id="next-id", command_hash="hash-2"
+                )
             )
 
     def test_corrupt_state_fails_closed(self) -> None:
@@ -61,7 +69,9 @@ class StateTests(unittest.TestCase):
             path = Path(tmp) / "state.json"
             path.write_text("broken", encoding="utf-8")
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=1, jti="x", command_id=COMMAND_ID)
+                ReplayState(path).accept(
+                    sequence=1, jti="x", command_id=COMMAND_ID, command_hash="hash"
+                )
 
 
 class OIDCTests(unittest.TestCase):
