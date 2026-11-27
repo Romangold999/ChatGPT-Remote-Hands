@@ -99,8 +99,8 @@ else
   git -C "$WORK_REPO" add -A
   if ! git -C "$WORK_REPO" diff --cached --quiet; then
     git -C "$WORK_REPO" commit -m "Initialize personal Android Remote Bridge mailbox"
-    git -C "$WORK_REPO" push -u origin main
   fi
+  git -C "$WORK_REPO" push -u origin main
   gh repo edit "$FULL_REPO" --default-branch main
   rm -rf "$TEMP_REPO"
   trap - EXIT
