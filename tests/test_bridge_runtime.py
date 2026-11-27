@@ -80,19 +80,19 @@ class OIDCTests(unittest.TestCase):
             "iat": now,
             "jti": "unique-token-id",
             "repository": "owner/private-repo",
-            "ref": "refs/heads/main",
+            "ref": "refs/heads/push-bridge",
             "event_name": "push",
         }
         token = jwt.encode(claims, private_key, algorithm="RS256")
-        verifier = GitHubOIDCVerifier(OIDCPolicy("termux-push-bridge", "owner/private-repo", "refs/heads/main"))
+        verifier = GitHubOIDCVerifier(OIDCPolicy("termux-push-bridge", "owner/private-repo", "refs/heads/push-bridge"))
         signing_key = type("SigningKey", (), {"key": private_key.public_key()})()
         with patch.object(verifier._jwks, "get_signing_key_from_jwt", return_value=signing_key):
             verified = verifier.verify(token)
         self.assertEqual(verified["jti"], "unique-token-id")
 
     def test_wrong_event_claim_is_rejected(self):
-        verifier = GitHubOIDCVerifier(OIDCPolicy("aud", "owner/repo", "refs/heads/main"))
-        claims = {"repository":"owner/repo","ref":"refs/heads/main","event_name":"workflow_dispatch","jti":"id","iat":int(time.time())}
+        verifier = GitHubOIDCVerifier(OIDCPolicy("aud", "owner/repo", "refs/heads/push-bridge"))
+        claims = {"repository":"owner/repo","ref":"refs/heads/push-bridge","event_name":"workflow_dispatch","jti":"id","iat":int(time.time())}
         key = type("SigningKey", (), {"key": "key"})()
         with patch.object(verifier._jwks, "get_signing_key_from_jwt", return_value=key):
             with patch("android_remote_bridge.oidc.jwt.decode", return_value=claims):
@@ -120,7 +120,7 @@ class LifecycleCLITests(unittest.TestCase):
             config.write_text(json.dumps({
                 "audience": "termux-push-bridge",
                 "repository": "owner/private-repo",
-                "ref": "refs/heads/main",
+                "ref": "refs/heads/push-bridge",
                 "state_file": str(Path(tmp) / "state" / "replay.json"),
             }), encoding="utf-8")
             self.assertEqual(status(config), {"running": False, "pid": None})
@@ -148,8 +148,8 @@ class WorkflowTemplateTests(unittest.TestCase):
         self.assertIn("id-token: write", workflow)
         self.assertNotIn("contents: write", workflow)
         self.assertNotIn("BRIDGE_TUNNEL_URL", workflow)
-        self.assertNotIn("--data-binary @mailbox/command.json", workflow)
-        self.assertIn("mailbox/tunnel-url.txt", workflow)
+        self.assertNotIn("--data-binary @push-bridge/command.json", workflow)
+        self.assertIn("push-bridge/tunnel-url.txt", workflow)
 
 
 class ListenerTests(unittest.TestCase):
@@ -158,7 +158,7 @@ class ListenerTests(unittest.TestCase):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), BridgeHandler)
         self.server.verifier = type("Verifier", (), {"verify": lambda _self, _token: {"jti":"test-jti"}})()
         self.server.replay_state = ReplayState(Path(self.tmp.name) / "state.json")
-        self.server.bridge_config = {"repository":"owner/private-repo","ref":"refs/heads/main","branch":"main"}
+        self.server.bridge_config = {"repository":"owner/private-repo","ref":"refs/heads/push-bridge","branch":"main"}
         self.server.busy_lock = threading.Lock()
         self.server.last_result = None
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -174,7 +174,7 @@ class ListenerTests(unittest.TestCase):
     def post(self, body=None):
         event = body or {
             "repository":"owner/private-repo",
-            "ref":"refs/heads/main",
+            "ref":"refs/heads/push-bridge",
             "after":"a" * 40,
             "timestamp":int(time.time()),
         }
@@ -216,7 +216,7 @@ class ListenerTests(unittest.TestCase):
 
     def test_event_rejects_wrong_repository(self):
         with self.assertRaises(urllib.error.HTTPError) as error:
-            self.post({"repository":"attacker/repo","ref":"refs/heads/main","after":"a"*40,"timestamp":int(time.time())})
+            self.post({"repository":"attacker/repo","ref":"refs/heads/push-bridge","after":"a"*40,"timestamp":int(time.time())})
         self.assertEqual(error.exception.code, 403)
 
 
