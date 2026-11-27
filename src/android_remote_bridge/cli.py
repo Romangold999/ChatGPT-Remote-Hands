@@ -26,9 +26,9 @@ def _paths(config_path: Path) -> tuple[Path, Path]:
     return root / "bridge.pid", root / "bridge.log"
 
 
-def _health_ok() -> bool:
+def _health_ok(port: int) -> bool:
     try:
-        with urllib.request.urlopen("http://127.0.0.1:18766/health", timeout=2) as response:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=2) as response:
             return response.status == 200 and response.read(256).find(b'"status":"ok"') >= 0
     except (OSError, urllib.error.URLError):
         return False
@@ -55,14 +55,16 @@ def _matching_pid(pid_file: Path, config_path: Path) -> int | None:
 
 def start(config_path: Path) -> int:
     config_path = config_path.expanduser().resolve()
+    config = load_config(config_path)
+    port = config["port"]
     pid_file, log_file = _paths(config_path)
     pid = _matching_pid(pid_file, config_path)
     if pid is not None:
-        if _health_ok():
+        if _health_ok(port):
             return pid
         raise BridgeCLIError("a Bridge process is recorded but not healthy; inspect logs or stop it first")
-    if _health_ok():
-        raise BridgeCLIError("port 18766 is already serving another process; refusing to take it over")
+    if _health_ok(port):
+        raise BridgeCLIError(f"port {port} is already serving another process; refusing to take it over")
 
     log_file.parent.mkdir(parents=True, exist_ok=True)
     with log_file.open("ab", buffering=0) as log:
@@ -84,7 +86,7 @@ def start(config_path: Path) -> int:
         if process.poll() is not None:
             pid_file.unlink(missing_ok=True)
             raise BridgeCLIError("listener exited during startup; inspect bridge.log")
-        if _health_ok():
+        if _health_ok(port):
             return process.pid
         time.sleep(0.25)
 
@@ -125,9 +127,10 @@ def stop(config_path: Path) -> bool:
 
 def status(config_path: Path) -> dict[str, object]:
     config_path = config_path.expanduser().resolve()
+    config = load_config(config_path)
     pid_file, _log_file = _paths(config_path)
     pid = _matching_pid(pid_file, config_path)
-    return {"running": pid is not None and _health_ok(), "pid": pid}
+    return {"running": pid is not None and _health_ok(config["port"]), "pid": pid}
 
 
 def show_logs(config_path: Path, lines: int = 50) -> str:
