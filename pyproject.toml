@@ -15,7 +15,7 @@ dependencies = ["PyJWT>=2.10,<3"]
 crypto = ["cryptography>=44,<51"]
 
 [project.scripts]
-android-remote-bridge = "android_remote_bridge.server:main"
+android-remote-bridge = "android_remote_bridge.cli:main"
 android-remote-bridge-tunnel = "android_remote_bridge.tunnel:main"
 
 [tool.setuptools.packages.find]
