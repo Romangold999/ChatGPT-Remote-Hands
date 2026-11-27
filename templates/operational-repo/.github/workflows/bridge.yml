@@ -41,9 +41,6 @@ jobs:
       - name: Send a signed push event to this user's Termux Bridge
         if: steps.command.outputs.ready == 'true'
         shell: bash
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           set -euo pipefail
           TUNNEL_URL="$(tr -d '\r\n' < mailbox/tunnel-url.txt)"
