@@ -28,7 +28,7 @@ ChatGPT-Remote-Hands/
 │   └── tunnel.py
 ├── templates/operational-repo/
 │   ├── .github/workflows/push-bridge.yml
-│   └── mailbox/
+│   └── push-bridge/
 │       ├── command.json
 │       ├── result.json
 │       └── tunnel-url.txt
