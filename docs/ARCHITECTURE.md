@@ -15,7 +15,7 @@
 
 ## Реализовано в текущем коде
 
-- Listener на стандартной библиотеке Python, привязанный только к `127.0.0.1:18766`.
+- Listener на стандартной библиотеке Python, привязанный только к `127.0.0.1:18767`.
 - Lifecycle CLI `android-remote-bridge start|stop|status|logs` для локального listener.
 - Endpoint `GET /health` и `POST /webhook`.
 - OIDC JWT verification через GitHub JWKS и PyJWT: RS256, issuer, audience, exp/iat, repository, ref и jti.
