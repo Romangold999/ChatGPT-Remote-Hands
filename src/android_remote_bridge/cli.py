@@ -57,9 +57,11 @@ def start(config_path: Path) -> int:
     config_path = config_path.expanduser().resolve()
     pid_file, log_file = _paths(config_path)
     pid = _matching_pid(pid_file, config_path)
-    if pid is not None and _health_ok():
-        return pid
-    if pid is None and _health_ok():
+    if pid is not None:
+        if _health_ok():
+            return pid
+        raise BridgeCLIError("a Bridge process is recorded but not healthy; inspect logs or stop it first")
+    if _health_ok():
         raise BridgeCLIError("port 18766 is already serving another process; refusing to take it over")
 
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +134,8 @@ def show_logs(config_path: Path, lines: int = 50) -> str:
     _pid_file, log_file = _paths(config_path)
     if not log_file.exists():
         return "No Bridge log has been created yet."
-    return "".join(deque(log_file.open(encoding="utf-8", errors="replace"), maxlen=lines))
+    with log_file.open(encoding="utf-8", errors="replace") as stream:
+        return "".join(deque(stream, maxlen=lines))
 
 
 def main() -> None:
