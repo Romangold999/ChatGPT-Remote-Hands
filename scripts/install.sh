@@ -151,6 +151,7 @@ import sys
 from pathlib import Path
 target = Path(sys.argv[1])
 data = json.loads(target.read_text(encoding="utf-8"))
+data["port"] = 18767
 data["tunnel_key"] = sys.argv[2]
 data["known_hosts"] = sys.argv[3]
 temporary = target.with_suffix(".tmp")
