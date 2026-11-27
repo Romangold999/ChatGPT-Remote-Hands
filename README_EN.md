@@ -25,10 +25,10 @@ The Bridge executes full Bash commands as the Termux app user. Commands can use 
 
 ## How it works
 
-1. GPT writes a command to mailbox/command.json in the user's private GitHub repository.
+1. GPT writes a command to push-bridge/command.json in the user's private GitHub repository.
 2. A push starts GitHub Actions. The workflow obtains a short-lived OIDC JWT and sends only an event containing repository, ref, commit SHA, and timestamp through the HTTPS tunnel.
 3. Termux verifies the token and event, fetches the command at the exact commit SHA, and runs bash -lc with a timeout.
-4. Termux writes stdout, stderr, exit code, and status to mailbox/result.json and acknowledges the command.
+4. Termux writes stdout, stderr, exit code, and status to push-bridge/result.json and acknowledges the command.
 5. GPT reads the result and may submit the next command in a new push event.
 
 **Termux does not poll GitHub for commands.** A new command arrives only through a GitHub Actions push event and tunnl.gg. HTTP 202 means the event was accepted, not that execution has finished.
@@ -48,7 +48,7 @@ The Bridge executes full Bash commands as the Termux app user. Commands can use 
 
 ## Security
 
-Full shell access means real command authority over files and programs available to Termux. The operational repository must remain private. Anyone with write access to mailbox/command.json effectively has the ability to execute commands on the device.
+Full shell access means real command authority over files and programs available to Termux. The operational repository must remain private. Anyone with write access to push-bridge/command.json effectively has the ability to execute commands on the device.
 
 GitHub Actions only forwards the event. Termux uses its local GitHub CLI authorization to fetch commands and publish results. The GitHub credential is not copied into Bridge config, webhook requests, or the public repository. OIDC tokens are short-lived and verified for each incoming event.
 
