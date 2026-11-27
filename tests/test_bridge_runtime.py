@@ -138,6 +138,20 @@ class TunnelTests(unittest.TestCase):
         self.assertIsNone(_tunnel_event(json.dumps({"event":"request","url":url})))
 
 
+class WorkflowTemplateTests(unittest.TestCase):
+    def test_workflow_only_sends_signed_push_event(self):
+        path = Path(__file__).parents[1] / "templates" / "operational-repo" / ".github" / "workflows" / "bridge.yml"
+        workflow = path.read_text(encoding="utf-8")
+        self.assertIn("audience=termux-push-bridge", workflow)
+        self.assertIn('"after": os.environ["GITHUB_SHA"]', workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("BRIDGE_TUNNEL_URL", workflow)
+        self.assertNotIn("--data-binary @mailbox/command.json", workflow)
+        self.assertIn("mailbox/tunnel-url.txt", workflow)
+
+
 class ListenerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
