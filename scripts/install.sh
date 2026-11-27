@@ -13,7 +13,7 @@ INSTALL_STATE="${STATE_DIR}/install.json"
 say() { printf '\n[Android Remote Bridge] %s\n' "$*"; }
 die() { printf '\n[Android Remote Bridge] ERROR: %s\n' "$*" >&2; exit 1; }
 
-if [[ -z "${PREFIX:-}" || "${PREFIX}" != *com.termux* ]]; then
+if [[ -z "${PREFIX:-}" || "${PREFIX:-}" != *com.termux* ]]; then
   die "This installer must run inside the native Termux app."
 fi
 if [[ "$(uname -m)" != "aarch64" && "$(uname -m)" != "arm64" ]]; then
@@ -28,7 +28,7 @@ chmod 700 "$APP_ROOT" "$STATE_DIR" "$CONFIG_DIR"
 
 say "Installing required Termux packages..."
 pkg update -y
-pkg install -y python python-cryptography git gh curl jq cloudflared
+pkg install -y python python-pip python-ensurepip-wheels python-cryptography git gh curl jq cloudflared
 
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   [[ ! -e "$SOURCE_DIR" ]] || die "Source path exists but is not a Git checkout: $SOURCE_DIR"
