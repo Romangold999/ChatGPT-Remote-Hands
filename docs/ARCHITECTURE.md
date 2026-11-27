@@ -1,67 +1,65 @@
-# Архитектура Android Remote Bridge
+# Архитектура ChatGPT Remote Hands
 
-## Поток данных
+## Поток данных — push, без polling
 
-1. AI assistant или другой write-capable канал записывает команду в mailbox приватного репозитория пользователя.
-2. Push файла `mailbox/command.json` запускает GitHub Actions.
-3. Workflow получает краткоживущий OIDC ID token с audience `termux-bridge`.
-4. Workflow отправляет JSON-команду через HTTPS tunnel на локальный listener Android.
-5. Listener проверяет подпись JWT по GitHub JWKS, issuer, audience, точные claims repository/ref и временные claims.
-6. Listener проверяет envelope, persistent sequence и jti replay protection.
-7. Выполняется только операция из локального allowlist; произвольный shell не поддерживается.
-8. Listener возвращает структурированный результат workflow.
-9. Workflow записывает результат в `mailbox/result.json` приватного репозитория.
-10. AI assistant отдельно читает результат и проверяет ID, sequence и status.
+1. ChatGPT или write-capable канал записывает mailbox/command.json со статусом ready в приватный operational repository.
+2. Push по mailbox/command.json запускает GitHub Actions.
+3. Workflow checkout-ит точный commit SHA, получает короткоживущий OIDC JWT с audience termux-push-bridge и отправляет через tunnl.gg только event metadata: repository, ref, after SHA и timestamp.
+4. Termux listener проверяет RS256/JWKS, issuer, audience, repository, ref, event_name=push, временные claims и jti.
+5. Termux по точному SHA получает command.json через GitHub Contents API с локальной авторизацией GitHub CLI.
+6. Persistent replay/sequence state защищает от повторного исполнения и конкурентных команд.
+7. Worker выполняет bash -lc в HOME Termux с timeout.
+8. Termux записывает result.json и подтверждает статус command.json через GitHub Contents API.
+9. ChatGPT читает result.json, сверяет ID/sequence/status и решает, нужна ли следующая команда.
 
-## Реализовано в текущем коде
+**Termux не опрашивает GitHub за командами.** Новая команда приходит только по push event. HTTP 202 означает принятие события, а не завершение shell execution. Туннельный health ping не является polling mailbox.
 
-- Listener на стандартной библиотеке Python, привязанный только к `127.0.0.1:18767`.
-- Lifecycle CLI `android-remote-bridge start|stop|status|logs` для локального listener.
-- Endpoint `GET /health` и `POST /webhook`.
-- OIDC JWT verification через GitHub JWKS и PyJWT: RS256, issuer, audience, exp/iat, repository, ref и jti.
-- Persistent replay/sequence state с атомарной заменой файла, правами 0600 и кэшированием последнего результата; повтор допускается только при совпадении command ID, sequence и SHA-256 исходного payload.
-- Envelope parser с лимитом 16 KiB и строгим allowlist.
-- Executor без shell/subprocess для `bridge.status`, `bridge.health`, `system.info`.
-- Шаблон operational repo: workflow вызывает tunnel, затем сохраняет JSON result в приватный mailbox.
-- CI устанавливает пакет и зависимости и запускает unit tests.
+## Компоненты
 
-Это начальный рабочий слой, а не готовый пользовательский установщик. В частности, ещё нет end-to-end проверки с реальным tunnel provider, полной автоматической настройки GitHub repo и устойчивого восстановления незавершённого dispatch после аварийного завершения процесса.
+- Python listener: loopback-only HTTP server на 127.0.0.1:18767.
+- OIDC verifier: PyJWT/JWKS, RS256, issuer, audience, repository/ref/event claims, timestamps, jti.
+- Mailbox client: GitHub Contents API; локальный token из gh auth token используется только в памяти.
+- Protocol parser: строгая схема shell envelope, ID/sequence/status/timeout/command length.
+- ReplayState: атомарный persistent state, replay protection, idempotent result cache.
+- Executor: subprocess.run(["bash","-lc", command]) с timeout, stdout, stderr и exit code.
+- Lifecycle CLI: start/stop/status/logs для listener.
+- Tunnel manager: отдельный SSH reverse tunnel supervisor, stable URL, pinned host key, reconnect и health keepalive.
+- Operational template: push-triggered workflow, command/result mailbox, tunnel-url.txt.
+- Installer: native Termux ARM64 bootstrap, private repo, GitHub CLI authorization, dedicated SSH key, tunnel registration.
 
-## Границы и места хранения
+## Формат mailbox
 
-### Публичный репозиторий (этот проект)
-Только универсальный код, чистые шаблоны, документация и тесты. Запрещено добавлять пользовательские или разработческие токены, OAuth/PAT, OIDC JWT, пароли, SSH private keys, HMAC secrets, приватные конфиги, персональные tunnel URL, логи и результаты команд.
+command.json содержит version, id, sequence, status=ready, operation=shell, approval, timeout_seconds и command (до 20 000 символов).
 
-### Приватный operational repository пользователя
-Отдельный репозиторий для каждого пользователя. В нём находятся mailbox и workflow. Персональный tunnel URL хранится как Actions variable `BRIDGE_TUNNEL_URL`, а не в публичном шаблоне. Не помещать туда private keys, PAT/OAuth credentials, HMAC secrets или долговременные bearer tokens.
+result.json содержит matching id/sequence, terminal status, timestamps, exit_code, stdout, stderr и error.
 
-### Локальное Android-хранилище
-Локальная конфигурация и persistent replay state хранятся вне Git. Bootstrap должен создавать их на устройстве, ограничивать доступ к файлам и не печатать секреты. Private key никогда не покидает устройство.
+Tunnel URL хранится в mailbox/tunnel-url.txt. Workflow запускается только при изменении mailbox/command.json, поэтому обновление tunnel URL не создаёт цикл запуска.
 
-### GitHub Actions
-OIDC JWT запрашивается во время workflow с минимальными permissions. В шаблоне используются `contents: write` для публикации результата и `id-token: write` для краткоживущего OIDC токена. JWT не сохраняется как постоянный секрет.
+## Права и границы
 
-## Termux и Android add-ons
+Shell выполняется с правами Termux app user. Это полноценное исполнение команд внутри Android sandbox, но не root и не удалённый рабочий стол. Write access к mailbox/command.json фактически даёт command authority над Termux user account. Operational repo обязан быть private.
 
-- Termux — обязательная базовая среда.
-- Termux:API — опционален. Для Android API функций нужны APK приложения Termux:API и CLI package `termux-api` внутри Termux.
-- Termux:Boot — опционален и настраивается только после явного opt-in.
-- Все Termux APK и plugin APK должны быть из одного совместимого источника подписи.
+Actions permissions:
+- contents: read — checkout private repository;
+- id-token: write — OIDC token.
 
-## Workflow security
+Termux использует локальную GitHub CLI authorization с Contents read/write для чтения команды и публикации результата. Токен не передаётся в webhook и не записывается в Bridge config.
 
-- Concurrency lock сериализует dispatch.
-- Third-party Actions закреплены по immutable commit SHA.
-- OIDC audience, repository и ref проверяются локальным listener.
-- Workflow принимает только HTTPS URL и ограничивает время HTTP-запроса.
-- Результат публикуется в operational repo; успешный HTTP ответ и успешный workflow не следует путать с проверкой terminal result.
+## Хранилище
 
-## Что ещё требуется реализовать и проверить
+Публичный репозиторий: только generic source, templates, docs, tests.
+Локальный Android: config, replay state, logs, PID, dedicated SSH private key, GitHub CLI credential (управляется gh).
+Private operational repo: workflow, command/result mailbox, tunnel URL.
+GitHub Actions: короткоживущий OIDC JWT только во время run.
 
-- Автоматическое восстановление после аварийного завершения до сохранения terminal result.
-- Полная автоматизация создания private repo и настройки Actions variable.
-- Tunnel provider manager, регистрация, reconnect и URL rotation.
-- Bootstrap и resume на чистом Termux.
-- Полный end-to-end тест на реальном Termux и tunnel provider.
-- Более широкие integration/security tests, включая реальные OIDC claims и end-to-end тест в отдельной тестовой инфраструктуре.
-- Chunked transfer для больших payload.
+## Статус и дальнейшие проверки
+
+Unit tests и CI проверяют protocol, shell executor, state, OIDC claims и webhook acceptance. Это не заменяет clean install и end-to-end проверку на отдельном Termux устройстве с реальным tunnl.gg, GitHub API и write/read integration channel.
+
+До релиза нужны:
+- clean Termux ARM64 install;
+- реальный GitHub auth и private repo bootstrap;
+- реальная команда от push event до result mailbox;
+- проверка отказов OIDC, replay, timeout, non-zero exit, concurrent command;
+- reconnect tunnel и восстановление после перезапуска Android;
+- безопасный resume installer и background lifecycle.
