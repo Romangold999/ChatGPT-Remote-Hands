@@ -43,6 +43,8 @@
 
 После проверки команда будет отображаться прямо здесь. Её можно будет скопировать целиком, вставить в Termux и нажать Enter.
 
+По умолчанию установщик берёт исходники из основной ветки `main`. Для отдельной проверки конкретной ветки можно перед запуском задать `ANDROID_REMOTE_BRIDGE_REF`, например `push-bridge-parity`; этот параметр влияет только на исходники публичного Bridge и не меняет настройки уже работающих установок.
+
 Предварительная команда:
 
     tmp="$(mktemp)" && curl -fsSL "https://raw.githubusercontent.com/Romangold999/ChatGPT-Remote-Hands/main/scripts/install.sh" -o "$tmp" && bash "$tmp"; rc=$?; [ -z "$tmp" ] || rm -f "$tmp"; exit "$rc"
