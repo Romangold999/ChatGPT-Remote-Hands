@@ -10,8 +10,8 @@ CONFIG_DIR="${HOME}/.config/android-remote-bridge"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 INSTALL_STATE="${STATE_DIR}/install.json"
 
-say() { printf '\n[Android Remote Bridge] %s\n' "$*"; }
-die() { printf '\n[Android Remote Bridge] ERROR: %s\n' "$*" >&2; exit 1; }
+say() { printf '\n[ChatGPT Remote Hands] %s\n' "$*"; }
+die() { printf '\n[ChatGPT Remote Hands] ERROR: %s\n' "$*" >&2; exit 1; }
 
 if [[ -z "${PREFIX:-}" || "${PREFIX:-}" != *com.termux* ]]; then
   die "This installer must run inside the native Termux app."
