@@ -31,7 +31,7 @@ The Bridge executes full Bash commands as the Termux app user. Commands can use 
 4. Termux writes stdout, stderr, exit code, and status to push-bridge/result.json and acknowledges the command.
 5. GPT reads the result and may submit the next command in a new push event.
 
-**Termux does not poll GitHub for commands.** A new command arrives only through a GitHub Actions push event and tunnl.gg. HTTP 202 means the event was accepted, not that execution has finished.
+A new command reaches Termux through a GitHub Actions push event and tunnl.gg. HTTP 202 means the event was accepted, not that execution has finished.
 
 ## Capabilities
 
