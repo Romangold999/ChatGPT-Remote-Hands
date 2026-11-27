@@ -13,7 +13,7 @@ Do not put real-looking credentials in examples. Use clearly fake placeholders o
 ## Per-user installation
 
 - Bootstrap creates local configuration and persistent replay state on the user's Android device. Any future provider-specific private keys must be generated locally and never leave the device.
-- The first provider, Cloudflare Quick Tunnel, does not require an SSH key or Cloudflare account.
+- The first provider is tunnl.gg over OpenSSH. Each installation uses its own registered Ed25519 key; the private key stays on the Android device.
 - GitHub CLI stores its own authentication locally. Never print or export its credential.
 - Local secret files must be excluded from Git and protected with restrictive permissions (0600 where applicable).
 - Each user gets a separate private operational repository. Keep it free of private keys, PAT/OAuth credentials, HMAC secrets and long-lived bearer tokens.
@@ -34,10 +34,10 @@ Do not put real-looking credentials in examples. Use clearly fake placeholders o
 - Restrict shell execution; use explicit safe mode/allowlist by default.
 - Require explicit user approval for destructive or high-risk operations.
 - Do not expose the local listener directly to the public internet; use the configured tunnel.
-- A Quick Tunnel URL is public and must not be treated as a password. The webhook must always validate the short-lived OIDC token and exact repository/ref claims.
+- A stable tunnl.gg URL is public and must not be treated as a password. The webhook must always validate the short-lived OIDC token and exact repository/ref claims.
 - The unauthenticated `/health` response must contain no configuration, secrets or device details.
 - Pin third-party Actions to immutable commit SHAs.
 - Keep mailbox concurrency serialized.
 - Explain that user auth can be revoked; no credential is guaranteed forever.
 - Android background execution and third-party tunnel availability are not guaranteed.
-- Cloudflare Quick Tunnels have no uptime SLA, use a random hostname, support up to 200 in-flight requests and do not support SSE.
+- Free tunnl.gg sessions have a 2-hour idle timeout, 24-hour maximum lifetime, 5 GB/day transfer cap and 3 concurrent tunnels per IP. Android background execution is not guaranteed.
