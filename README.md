@@ -129,7 +129,7 @@ Termux и все его плагины должны быть установле�
 | `docs/PROJECT_STRUCTURE.md` | Карта каталогов и границы хранения данных |
 | `CONTRIBUTING.md` | Правила безопасного участия в проекте |
 | `pyproject.toml` | Метаданные Python-пакета и настройки инструментов |
-| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, allowlist executor и Cloudflare tunnel manager |
+| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, lifecycle CLI, allowlist executor и Cloudflare tunnel manager |
 | `templates/operational-repo/` | Чистый шаблон индивидуального приватного repo: workflow и mailbox |
 | `templates/local/` | Пример локальной конфигурации пользователя без секретов |
 | `scripts/install.sh` | Первый bootstrap-скрипт для Termux ARM64 (экспериментальный, не release) |
