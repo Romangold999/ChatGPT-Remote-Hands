@@ -18,7 +18,7 @@
 - Listener на стандартной библиотеке Python, привязанный только к `127.0.0.1:18766`.
 - Endpoint `GET /health` и `POST /webhook`.
 - OIDC JWT verification через GitHub JWKS и PyJWT: RS256, issuer, audience, exp/iat, repository, ref и jti.
-- Persistent replay/sequence state с атомарной заменой файла и правами 0600.
+- Persistent replay/sequence state с атомарной заменой файла, правами 0600 и кэшированием последнего результата для безопасного повтора той же команды.
 - Envelope parser с лимитом 16 KiB и строгим allowlist.
 - Executor без shell/subprocess для `bridge.status`, `bridge.health`, `system.info`.
 - Шаблон operational repo: workflow вызывает tunnel, затем сохраняет JSON result в приватный mailbox.
@@ -57,7 +57,7 @@ OIDC JWT запрашивается во время workflow с минималь
 
 ## Что ещё требуется реализовать и проверить
 
-- Идемпотентное восстановление после разрыва соединения между исполнением и публикацией результата.
+- Автоматическое восстановление после аварийного завершения до сохранения terminal result.
 - Полная автоматизация создания private repo и настройки Actions variable.
 - Tunnel provider manager, регистрация, reconnect и URL rotation.
 - Bootstrap и resume на чистом Termux.
