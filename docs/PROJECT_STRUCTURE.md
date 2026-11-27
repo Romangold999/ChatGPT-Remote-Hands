@@ -1,94 +1,74 @@
 # Структура проекта
 
-Этот документ — карта репозитория. Он различает уже существующие материалы и каталоги, которые появятся по мере реализации. Не считайте запланированный путь рабочим компонентом, пока соответствующий код и тесты не добавлены.
+## Текущая структура
 
-## Сейчас в репозитории
-
-```text
-Android-Remote-Bridge/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── src/
-│   └── android_remote_bridge/
-│       ├── __init__.py
-│       └── protocol.py
+~~~text
+ChatGPT-Remote-Hands/
+├── .github/workflows/ci.yml
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── COMMAND_PROTOCOL.md
+│   ├── DECISIONS.md
+│   ├── GITHUB_AUTH.md
+│   ├── GETTING_STARTED.md
+│   ├── INSTALLATION_PLAN.md
+│   ├── PROJECT_STRUCTURE.md
+│   ├── REFERENCE_ENVIRONMENT.md
+│   ├── ROADMAP.md
+│   ├── TROUBLESHOOTING.md
+│   └── TUNNEL.md
+├── scripts/install.sh
+├── src/android_remote_bridge/
+│   ├── cli.py
+│   ├── executor.py
+│   ├── oidc.py
+│   ├── protocol.py
+│   ├── server.py
+│   ├── state.py
+│   └── tunnel.py
+├── templates/operational-repo/
+│   ├── .github/workflows/bridge.yml
+│   └── mailbox/
+│       ├── command.json
+│       ├── result.json
+│       └── tunnel-url.txt
 ├── tests/
+│   ├── test_bridge_runtime.py
 │   └── test_protocol.py
-├── pyproject.toml
-├── .gitignore
-├── CONTRIBUTING.md
-├── README.md
 ├── CHATGPT_PROMPT_RU.md
+├── README.md
+├── README_EN.md
 ├── SECURITY.md
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── COMMAND_PROTOCOL.md
-    ├── DECISIONS.md
-    ├── GITHUB_AUTH.md
-    ├── INSTALLATION_PLAN.md
-    ├── PROJECT_STRUCTURE.md
-    ├── REFERENCE_ENVIRONMENT.md
-    ├── ROADMAP.md
-    ├── TROUBLESHOOTING.md
-    └── TUNNEL.md
-```
+└── pyproject.toml
+~~~
 
-## Целевая структура
+## Назначение компонентов
 
-По мере разработки дерево будет расширяться примерно так:
+| Путь | Назначение |
+|---|---|
+| src/android_remote_bridge/server.py | loopback listener, OIDC/event validation, GitHub mailbox API, async command worker |
+| src/android_remote_bridge/oidc.py | GitHub Actions OIDC JWT verification |
+| src/android_remote_bridge/protocol.py | строгая схема shell command envelope |
+| src/android_remote_bridge/executor.py | bash -lc execution, timeout, stdout/stderr/exit code |
+| src/android_remote_bridge/state.py | persistent sequence, jti replay protection, cached/interrupted result |
+| src/android_remote_bridge/cli.py | listener lifecycle: start/stop/status/logs |
+| src/android_remote_bridge/tunnel.py | tunnl.gg SSH reverse tunnel, stable URL, reconnect, health keepalive |
+| scripts/install.sh | native Termux ARM64 installer draft |
+| templates/operational-repo | чистый private mailbox + push-event workflow |
+| tests | synthetic unit/integration tests; no personal credentials or mailbox data |
 
-```text
-Android-Remote-Bridge/
-├── .github/
-│   ├── workflows/          # CI: lint, unit tests, security checks
-│   └── ISSUE_TEMPLATE/     # шаблоны безопасных bug reports
-├── docs/                   # архитектура, инструкции, решения
-├── src/
-│   └── android_remote_bridge/
-│       ├── bridge/         # локальный HTTP listener и lifecycle
-│       ├── auth/           # проверка GitHub OIDC
-│       ├── protocol/       # schema, IDs, sequence, mailbox
-│       ├── executor/       # allowlist, timeout, output limits
-│       └── tunnel/         # адаптеры tunnel providers
-├── scripts/                # команды обслуживания и диагностики
-├── templates/
-│   └── operational-repo/   # чистый шаблон приватного repo пользователя
-│       └── .github/workflows/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/           # только синтетические тестовые данные
-├── install.sh              # bootstrap для Termux (после реализации)
-├── pyproject.toml          # Python package/tooling config
-├── .gitignore
-├── CONTRIBUTING.md
-├── SECURITY.md
-└── README.md
-```
+## Данные конкретного пользователя
 
-## Назначение каталогов
+- Android: local config, replay state, logs, PID, dedicated SSH private key, GitHub CLI credential (managed by gh).
+- Private operational repo: workflow, mailbox/command.json, mailbox/result.json, mailbox/tunnel-url.txt.
+- GitHub Actions: short-lived OIDC JWT during a workflow run.
+- Public repository: generic code, clean templates, documentation and tests only.
 
-| Каталог | Что в нём должно быть | Чего там быть не должно |
-|---|---|---|
-| `.github/workflows/` | CI публичного проекта | пользовательские workflow с реальными endpoint/секретами |
-| `src/` | универсальный исходный код Bridge | локальные конфиги и runtime state |
-| `scripts/` | универсальные команды установки и обслуживания | экспортированные пользовательские credentials |
-| `templates/operational-repo/` | безопасный шаблон приватного репозитория | private keys, PAT, HMAC secrets, tunnel URL |
-| `tests/` | автоматические тесты и синтетические fixtures | реальные mailbox, логи и дампы |
-| `docs/` | инструкции и архитектурные решения | секреты, персональные адреса и рабочие токены |
+## Правила
 
-## Где будут данные конкретного пользователя
-
-Runtime-данные не хранятся в этом публичном репозитории.
-
-- **На Android:** приватный SSH key, локальные secrets, конфигурация, PID/state и логи. Каталог будет создан установщиком с ограниченными правами.
-- **В личном private GitHub repository:** workflow, mailbox, sequence и только необходимые несекретные настройки.
-- **В GitHub Actions:** короткоживущий OIDC token на время конкретного запуска.
-- **В публичном репозитории:** только общий код и чистые шаблоны.
-
-Каждая установка получает отдельный private repository и отдельную локальную конфигурацию. Нельзя использовать operational repo автора как общий backend.
-
-## Правило обновления карты
-
-При добавлении нового верхнеуровневого каталога или важного файла обновляйте этот документ и таблицу путей в главном README. Не добавляйте сюда фиктивные пути ради красивого дерева.
+- Не добавлять реальные credentials, private keys, tunnel URLs, логи и command results в публичный репозиторий.
+- Не использовать рабочий private operational repo автора как общий backend.
+- Не переиспользовать SSH private key между установками.
+- Изменения protocol/server/executor должны сопровождаться тестами и обновлением docs/COMMAND_PROTOCOL.md.
+- Bridge работает по push-событиям; не добавлять polling loop для получения команд.
+- Shell выполняется в пределах прав Termux app user; write access к private mailbox фактически даёт command authority.
