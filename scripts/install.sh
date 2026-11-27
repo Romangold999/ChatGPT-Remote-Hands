@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 REPO_URL="https://github.com/Romangold999/ChatGPT-Remote-Hands.git"
+SOURCE_REF="${ANDROID_REMOTE_BRIDGE_REF:-main}"
 APP_ROOT="${HOME}/.local/share/android-remote-bridge"
 SOURCE_DIR="${APP_ROOT}/source"
 VENV_DIR="${APP_ROOT}/venv"
@@ -32,9 +33,9 @@ pkg install -y python python-pip python-ensurepip-wheels python-cryptography git
 
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   [[ ! -e "$SOURCE_DIR" ]] || die "Source path exists but is not a Git checkout: $SOURCE_DIR"
-  git clone --depth 1 "$REPO_URL" "$SOURCE_DIR"
+  git clone --depth 1 --single-branch --branch "$SOURCE_REF" "$REPO_URL" "$SOURCE_DIR"
 else
-  git -C "$SOURCE_DIR" fetch --depth 1 origin main
+  git -C "$SOURCE_DIR" fetch --depth 1 origin "$SOURCE_REF"
   git -C "$SOURCE_DIR" merge --ff-only FETCH_HEAD
 fi
 
