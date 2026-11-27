@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "Per-user secure bridge between AI workflows and Android Termux"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "License not selected yet" }
 authors = [{ name = "Android Remote Bridge contributors" }]
 dependencies = []
 
