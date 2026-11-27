@@ -134,7 +134,7 @@
 14. Запустить Bridge listener на 127.0.0.1:18767.
 15. Проверить локальный /health.
 16. Запустить стабильный SSH reverse tunnel.
-17. Проверить внешний HTTPS /health и записать tunnel URL в Actions variable BRIDGE_TUNNEL_URL личного private repo.
+17. Проверить внешний HTTPS /health и записать tunnel URL в файл mailbox/tunnel-url.txt личного private repo.
 18. Показать итоговый статус.
 
 Это описание текущего скрипта, а не доказательство, что весь маршрут работает на чистом устройстве. До e2e проверки не обещай успешное завершение.
@@ -189,91 +189,89 @@
 
 ## 5. Архитектура системы
 
-Цепочка:
+Цепочка работы — push-event, как в рабочем Termux Push Bridge:
 
     ChatGPT / write-capable channel
-      → private GitHub operational repo
-      → GitHub Actions + OIDC
-      → tunnl.gg HTTPS tunnel
-      → Android Termux Bridge
-      → allowlisted operation
-      → result mailbox
-      → ChatGPT
+      → private GitHub operational repo: mailbox/command.json
+      → push event starts GitHub Actions
+      → Actions obtains short-lived OIDC JWT
+      → HTTPS POST event through tunnl.gg
+      → Android Termux validates OIDC + event
+      → Termux fetches command.json at exact commit SHA
+      → bash -lc executes command
+      → Termux publishes mailbox/result.json through GitHub API
+      → Termux acknowledges command status
+      → ChatGPT reads result and decides next command
 
-Компоненты:
-- **Публичный репозиторий:** универсальный код, тесты, инструкции и безопасные шаблоны.
-- **Termux:** среда выполнения Android.
-- **Локальный Bridge:** listener на loopback, проверяет запросы и исполняет только встроенные разрешённые операции.
-- **Private operational repo:** личный mailbox и workflow пользователя.
-- **GitHub Actions:** запускает workflow, получает короткоживущий OIDC JWT, вызывает tunnel и публикует результат.
-- **tunnl.gg:** SSH reverse tunnel и HTTPS endpoint.
-- **ChatGPT:** создаёт запрос и читает результат через реальный write/read канал.
+**Termux does not poll GitHub for commands.** There is no 2-second command polling loop. A command arrives only when a push event triggers GitHub Actions. A keepalive request to the tunnel's own /health endpoint is not command polling.
 
-Публичный репозиторий не является центральным сервером. У каждого пользователя собственные телефон, private repository, SSH identity и tunnel.
+GitHub Actions sends only repository, ref, commit SHA (after) and timestamp. It does not send the shell command in the webhook body and does not wait for command completion. HTTP 202 means the event was accepted by Termux. Termux fetches the mailbox file itself, executes it asynchronously, and writes the result back to GitHub. GPT then reads result.json and can submit another command as a new push event.
 
-Где хранятся данные:
-- публичный repo — исходники, docs, tests, чистые шаблоны и installer;
-- Android — локальный конфиг, replay state, private SSH key, PID, логи и install state;
-- private operational repo — .github/workflows/bridge.yml, mailbox/command.json, mailbox/result.json и Actions variable BRIDGE_TUNNEL_URL;
-- GitHub Actions — короткоживущий OIDC JWT только во время выполнения.
+Components:
+- Public repository — universal source, tests, docs and clean templates.
+- Termux — execution environment on Android.
+- Local Bridge — loopback listener, OIDC/event validation, mailbox client, shell executor and persistent replay state.
+- Private operational repo — per-user command/result mailbox and push workflow.
+- GitHub Actions — push event dispatcher and short-lived OIDC token issuer.
+- tunnl.gg — stable SSH reverse tunnel and HTTPS endpoint.
+- ChatGPT — creates a command and reads its result through a real write/read channel.
 
-Не копируй credentials или secrets из одной установки в другую.
+Each user has their own Android device, private operational repository, GitHub CLI authorization, dedicated SSH identity and stable tunnel. The public repository is not a shared command server.
 
 ## 6. Реальные возможности Bridge и протокол
 
-Начальный allowlist в текущем коде и docs/COMMAND_PROTOCOL.md:
-- bridge.status
-- bridge.health
-- system.info
+Bridge executes full Bash commands using bash -lc in the Termux app user's environment. It can use files, directories, Git, Python, Node.js, shell utilities and other tools installed and accessible inside Termux. It does not provide Android root access or escape Android application sandbox permissions.
 
-Эти операции не запускают shell или subprocess.
+Private mailbox files:
+- mailbox/command.json — incoming command.
+- mailbox/result.json — terminal execution result.
+- mailbox/tunnel-url.txt — current tunnl.gg endpoint.
+- .github/workflows/bridge.yml — push event dispatcher.
 
-Не поддерживаются: произвольный shell, shell.exec, запуск любых приложений, удалённый рабочий стол, просмотр экрана, нажатия по Android UI, произвольное чтение/запись файлов телефона.
+Command envelope v1:
 
-Не придумывай новые операции. Сначала проверь код, документацию и тесты установленной версии.
+~~~json
+{
+  "version": 1,
+  "id": "unique-command-id-001",
+  "sequence": 1,
+  "status": "ready",
+  "operation": "shell",
+  "approval": "not_required",
+  "timeout_seconds": 300,
+  "command": "pwd && ls -la"
+}
+~~~
 
-Файлы private repo:
-- mailbox/command.json — запрос;
-- mailbox/result.json — результат;
-- BRIDGE_TUNNEL_URL — Actions variable.
+Rules:
+- version = 1.
+- id = unique string up to 120 safe characters.
+- sequence = next positive integer.
+- status = ready for a new command.
+- operation = shell.
+- command = full Bash command, maximum 20,000 characters.
+- timeout_seconds = 1..3600.
+- approval = not_required or approved; this field records approval state but does not replace explicit user consent.
 
-Envelope v1:
-- version — строго 1;
-- id — UUID;
-- sequence — следующий ожидаемый номер;
-- operation — только allowlist;
-- status — для новой команды pending;
-- arguments — объект; текущие операции аргументы не принимают;
-- approval — boolean, по умолчанию false;
-- timeout_seconds — от 1 до 60, по умолчанию 10.
+Result includes matching id and sequence, status, timestamps, exit_code, stdout, stderr and error. Terminal statuses: completed, failed, timeout, error. Output is bounded to the last 100,000 characters for stdout and stderr.
 
-Лимит JSON envelope — 16 KiB. Неизвестные поля отклоняются.
+Security checks:
+- RS256 signature via GitHub JWKS.
+- exact issuer and audience termux-push-bridge.
+- exact repository, ref and event_name=push.
+- exp, iat, nbf and required jti.
+- event repository/ref, commit SHA and timestamp.
+- persistent replay and sequence protection.
+- only one active command; concurrent dispatch receives HTTP 409.
+- safe retry may republish a saved result but never re-executes the same command payload.
 
-Terminal result содержит version, id, sequence, status, timestamps, duration_seconds, exit_code, data и error. Terminal status — completed или failed.
+GitHub auth:
+- GitHub Actions has contents: read for checkout and id-token: write for the short-lived OIDC JWT.
+- Termux uses local GitHub CLI authorization (gh auth token) to fetch command.json at the exact pushed commit and write result.json/command acknowledgement.
+- The GitHub credential is not sent through the webhook and is not copied into Bridge config or public source.
+- The private operational repository must remain private. Write access to mailbox/command.json is effectively command authority over the Termux user account.
 
-Перед каждой новой командой:
-1. Прочитай актуальные command.json и result.json.
-2. Убедись, что предыдущая команда завершена.
-3. Проверь ID, sequence и актуальные SHA.
-4. Используй следующий sequence только по фактическому состоянию.
-5. Не делай параллельных записей в один mailbox.
-6. После workflow отдельно прочитай result.json.
-7. Сверь ID и sequence.
-8. HTTP 202 и зелёный workflow не доказывают выполнение на телефоне.
-
-Не повторяй старый jti. Учитывай replay protection и идемпотентность.
-
-### OIDC
-
-Bridge проверяет подпись GitHub OIDC JWT и claims: issuer, audience termux-bridge, timestamps, repository, ref, jti и replay protection.
-
-Не декодируй и не показывай JWT. Не сохраняй OIDC token как постоянный secret.
-
-Operational workflow использует:
-- contents: write — чтобы публиковать mailbox/result.json;
-- id-token: write — чтобы запросить короткоживущий OIDC JWT.
-
-Не утверждай, что текущий workflow использует только contents: read: это противоречит шаблону публикации результата.
+Do not claim shell execution is sandboxed. Commands run with Termux app permissions. Do not execute destructive or high-impact actions without explicit user consent. Never reveal secrets from files, environment variables, logs or credentials.
 
 ## 7. GitHub connector и двусторонняя связь
 
