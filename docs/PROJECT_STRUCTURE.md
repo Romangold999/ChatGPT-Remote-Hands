@@ -27,7 +27,7 @@ ChatGPT-Remote-Hands/
 │   ├── state.py
 │   └── tunnel.py
 ├── templates/operational-repo/
-│   ├── .github/workflows/bridge.yml
+│   ├── .github/workflows/push-bridge.yml
 │   └── mailbox/
 │       ├── command.json
 │       ├── result.json
@@ -60,7 +60,7 @@ ChatGPT-Remote-Hands/
 ## Данные конкретного пользователя
 
 - Android: local config, replay state, logs, PID, dedicated SSH private key, GitHub CLI credential (managed by gh).
-- Private operational repo: workflow, mailbox/command.json, mailbox/result.json, mailbox/tunnel-url.txt.
+- Private operational repo: workflow, push-bridge/command.json, push-bridge/result.json, push-bridge/tunnel-url.txt.
 - GitHub Actions: short-lived OIDC JWT during a workflow run.
 - Public repository: generic code, clean templates, documentation and tests only.
 
