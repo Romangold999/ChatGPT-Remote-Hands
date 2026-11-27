@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -18,10 +17,10 @@ LOG = logging.getLogger("android_remote_bridge")
 
 
 class BridgeHandler(BaseHTTPRequestHandler):
-    server_version = "AndroidRemoteBridge/0.1"
+    server_version = "AndroidRemoteBridge/0.2"
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        # Never log request headers, body, bearer tokens or command payloads.
+        # Do not log headers, bearer tokens, request bodies or command payloads.
         LOG.info("request from %s: %s", self.client_address[0], fmt % args)
 
     def _reply(self, status: int, payload: dict[str, Any]) -> None:
@@ -58,11 +57,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if not auth.startswith("Bearer "):
             self._reply(401, {"error": "bearer_token_required"})
             return
-        token = auth[7:].strip()
         try:
-            claims = self.server.verifier.verify(token)  # type: ignore[attr-defined]
-            raw = self.rfile.read(length)
-            command = parse_command(raw)
+            claims = self.server.verifier.verify(auth[7:].strip())  # type: ignore[attr-defined]
+            command = parse_command(self.rfile.read(length))
             self.server.replay_state.accept(  # type: ignore[attr-defined]
                 sequence=command.sequence, jti=claims["jti"]
             )
@@ -92,14 +89,14 @@ def main() -> None:
     args = parser.parse_args()
     config = load_config(args.config)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    state_path = Path(config["state_file"]).expanduser()
+    replay_state = ReplayState(state_path)
     server = ThreadingHTTPServer(("127.0.0.1", 18766), BridgeHandler)
     server.verifier = GitHubOIDCVerifier(  # type: ignore[attr-defined]
         OIDCPolicy(config["audience"], config["repository"], config["ref"])
     )
-    state_path = Path(config["state_file"]).expanduser()
-    server.replay_state = ReplayState(state_path)  # type: ignore[attr-defined]
+    server.replay_state = replay_state  # type: ignore[attr-defined]
     server.last_result = None  # type: ignore[attr-defined]
-    os.chmod(state_path, 0o600)
     LOG.info("listener bound to 127.0.0.1:18766")
     try:
         server.serve_forever(poll_interval=0.5)
