@@ -66,5 +66,5 @@ Termux и все plugin APK должны быть из одного источн
 - Реальный GitHub device/browser login и создание private repo.
 - Полный цикл команды от изменения mailbox до terminal result.
 - Повтор команды после потери HTTP ответа и recovery после аварийного завершения.
-- Поведение при остановке Android фоновых процессов и смене Quick Tunnel URL.
+- Поведение при остановке Android фоновых процессов и переподключении stable tunnl.gg URL.
 - Безопасное управление start/stop/status и opt-in для Termux:Boot.
