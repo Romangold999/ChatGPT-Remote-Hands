@@ -193,6 +193,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         except AuthenticationError:
             self._reply(401, {"error": "authentication_failed"})
             return
+        acquired = False
         try:
             event = json.loads(self.rfile.read(length).decode("utf-8"))
             config = self.server.bridge_config  # type: ignore[attr-defined]
@@ -213,6 +214,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if not self.server.busy_lock.acquire(blocking=False):  # type: ignore[attr-defined]
                 self._reply(409, {"error": "command_in_progress"})
                 return
+            acquired = True
 
             token = _github_token()
             raw_command, _sha = _get_contents(
@@ -228,6 +230,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             )
             if cached is not None:
                 self.server.busy_lock.release()  # type: ignore[attr-defined]
+                acquired = False
                 threading.Thread(
                     target=_publish_result, args=(self.server, cached), daemon=True
                 ).start()
@@ -243,16 +246,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 {"status": "accepted", "id": command.command_id, "sequence": command.sequence},
             )
         except (UnicodeDecodeError, json.JSONDecodeError):
-            if getattr(self.server, "busy_lock", None) and self.server.busy_lock.locked():  # type: ignore[attr-defined]
+            if acquired:
                 self.server.busy_lock.release()  # type: ignore[attr-defined]
             self._reply(400, {"error": "invalid_event_json"})
         except (ProtocolError, StateError, BridgeError) as exc:
-            if getattr(self.server, "busy_lock", None) and self.server.busy_lock.locked():  # type: ignore[attr-defined]
+            if acquired:
                 self.server.busy_lock.release()  # type: ignore[attr-defined]
             LOG.warning("event rejected: %s", str(exc)[:500])
             self._reply(400, {"error": "event_rejected", "detail": str(exc)[:300]})
         except Exception:
-            if getattr(self.server, "busy_lock", None) and self.server.busy_lock.locked():  # type: ignore[attr-defined]
+            if acquired:
                 self.server.busy_lock.release()  # type: ignore[attr-defined]
             LOG.exception("internal bridge error")
             self._reply(500, {"error": "internal_error"})
