@@ -131,20 +131,8 @@ REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
 [[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] \
   || die "The operational repository owner or visibility check failed."
 
-if ! curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null 2>&1; then
-  say "Starting your local Bridge listener..."
-  nohup "$VENV_DIR/bin/android-remote-bridge" --config "$CONFIG_FILE" \
-    >> "$STATE_DIR/bridge.log" 2>&1 < /dev/null &
-  BRIDGE_PID=$!
-  printf '%s\n' "$BRIDGE_PID" > "$STATE_DIR/bridge.pid"
-  chmod 600 "$STATE_DIR/bridge.pid" "$STATE_DIR/bridge.log" 2>/dev/null || true
-  for _ in $(seq 1 30); do
-    if curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-fi
+say "Starting your local Bridge listener..."
+"$VENV_DIR/bin/android-remote-bridge" start --config "$CONFIG_FILE"
 curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null \
   || die "Local Bridge did not become healthy. Check $STATE_DIR/bridge.log"
 
