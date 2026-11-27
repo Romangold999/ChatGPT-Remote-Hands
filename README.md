@@ -132,11 +132,12 @@ Termux и все его плагины должны быть установле�
 | `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, allowlist executor и Cloudflare tunnel manager |
 | `templates/operational-repo/` | Чистый шаблон индивидуального приватного repo: workflow и mailbox |
 | `templates/local/` | Пример локальной конфигурации пользователя без секретов |
+| `scripts/install.sh` | Первый bootstrap-скрипт для Termux ARM64 (экспериментальный, не release) |
 | `tests/` | Unit-тесты протокола и runtime |
 | `.github/workflows/ci.yml` | Автоматический запуск unit-тестов при push и pull request |
 | `.gitignore` | Исключения локальных секретов и runtime-файлов |
 
-Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state с кэшированием результата, три встроенные операции без shell, шаблон workflow для приватного operational repo и менеджер Cloudflare Quick Tunnel. CI устанавливает Python-пакет и запускает тесты. Полноценный `install.sh` и end-to-end проверка на реальном Android ещё не готовы.
+Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state с кэшированием результата, три встроенные операции без shell, шаблон workflow для приватного operational repo и менеджер Cloudflare Quick Tunnel. Добавлен первый ARM64 Termux bootstrap `scripts/install.sh`; его нужно ещё проверить на чистом Android/Termux и пройти полный end-to-end сценарий.
 
 ## Принципы проекта
 
