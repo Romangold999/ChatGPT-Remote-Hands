@@ -136,6 +136,15 @@ def _publish_result(server: ThreadingHTTPServer, result: dict[str, Any]) -> None
         LOG.exception("command acknowledgement failed after result publication")
 
 
+def _republish_cached(server: ThreadingHTTPServer, result: dict[str, Any]) -> None:
+    try:
+        _publish_result(server, result)
+    except Exception:
+        LOG.exception("could not republish cached result %s", result.get("id"))
+    finally:
+        server.busy_lock.release()  # type: ignore[attr-defined]
+
+
 def _run_command(server: ThreadingHTTPServer, command: Command, command_hash: str) -> None:
     try:
         result = execute(command)
@@ -143,8 +152,21 @@ def _run_command(server: ThreadingHTTPServer, command: Command, command_hash: st
             sequence=command.sequence, command_id=command.command_id, result=result
         )
         server.last_result = result  # type: ignore[attr-defined]
-        _publish_result(server, result)
-        LOG.info("command %s finished: %s exit=%s", command.command_id, result["status"], result["exit_code"])
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                _publish_result(server, result)
+                last_error = None
+                break
+            except Exception as exc:
+                last_error = exc
+                LOG.exception("result publication attempt %s failed for %s", attempt + 1, command.command_id)
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+        if last_error is not None:
+            LOG.error("result remains in local replay state; GitHub publication failed")
+        else:
+            LOG.info("command %s finished: %s exit=%s", command.command_id, result["status"], result["exit_code"])
     except Exception:
         LOG.exception("command worker failed for %s", command.command_id)
     finally:
@@ -229,11 +251,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 command_hash=command_hash,
             )
             if cached is not None:
-                self.server.busy_lock.release()  # type: ignore[attr-defined]
-                acquired = False
                 threading.Thread(
-                    target=_publish_result, args=(self.server, cached), daemon=True
+                    target=_republish_cached, args=(self.server, cached), daemon=True
                 ).start()
+                acquired = False  # the republish worker now owns the mailbox lock
                 self._reply(200, {"status": "duplicate", "id": command.command_id})
                 return
             threading.Thread(
