@@ -23,6 +23,7 @@ class ReplayState:
                 "last_sequence": 0,
                 "seen_jti": [],
                 "last_command_id": None,
+                "last_command_hash": None,
                 "last_result": None,
             })
 
@@ -36,6 +37,7 @@ class ReplayState:
         if not isinstance(data.get("seen_jti"), list):
             raise StateError("persistent replay state is invalid")
         data.setdefault("last_command_id", None)
+        data.setdefault("last_command_hash", None)
         data.setdefault("last_result", None)
         return data
 
@@ -53,7 +55,9 @@ class ReplayState:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
 
-    def accept(self, *, sequence: int, jti: str, command_id: str) -> dict[str, Any] | None:
+    def accept(
+        self, *, sequence: int, jti: str, command_id: str, command_hash: str
+    ) -> dict[str, Any] | None:
         """Reserve the next command, or return its cached result on safe retry."""
         with self._lock:
             data = self._read()
@@ -62,6 +66,8 @@ class ReplayState:
                 raise StateError("OIDC token replay detected")
 
             if sequence == data["last_sequence"] and command_id == data["last_command_id"]:
+                if command_hash != data["last_command_hash"]:
+                    raise StateError("same command identity was reused with a different payload")
                 cached = data["last_result"]
                 if cached is None:
                     raise StateError("command was interrupted before a result was saved")
@@ -77,6 +83,7 @@ class ReplayState:
             data["seen_jti"] = seen[-10_000:]
             data["last_sequence"] = sequence
             data["last_command_id"] = command_id
+            data["last_command_hash"] = command_hash
             data["last_result"] = None
             self._write(data)
             return None
