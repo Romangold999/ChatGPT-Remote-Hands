@@ -4,12 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "android-remote-bridge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Per-user secure bridge between AI workflows and Android Termux"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Android Remote Bridge contributors" }]
-dependencies = []
+dependencies = ["PyJWT[crypto]>=2.10,<3"]
+
+[project.scripts]
+android-remote-bridge = "android_remote_bridge.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
