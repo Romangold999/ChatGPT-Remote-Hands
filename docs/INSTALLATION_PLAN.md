@@ -1,79 +1,75 @@
-# План универсальной установки
+# План и текущий статус установки
 
-Документ описывает целевой сценарий. Это не готовые команды установки.
+Первый экспериментальный bootstrap находится в `scripts/install.sh`. Он рассчитан на ARM64 Termux и уже умеет устанавливать локальный runtime, создавать отдельный private repo пользователя, загружать operational template, запускать listener и поднимать Cloudflare Quick Tunnel. Скрипт ещё не прошёл полный end-to-end тест на чистом Android; до релиза его статус остаётся экспериментальным.
 
 ## Что нужно пользователю
 
-- Android с поддерживаемой архитектурой (первый целевой профиль — ARM64).
+- Android с поддерживаемой архитектурой (первый профиль — ARM64).
 - Termux из выбранного поддерживаемого источника.
 - GitHub account.
 - AI assistant и подтверждённый write-capable канал для mailbox (GitHub connector ChatGPT может быть read-only).
-- Сеть для GitHub и выбранного tunnel provider.
+- Сеть для GitHub и Cloudflare Quick Tunnel.
 
 ### Android приложения и плагины
 
 1. **Termux** — обязателен.
-2. **Termux:API** — необязателен для базового Bridge. Нужен, если включены Android-функции, например системные уведомления, информация о батарее, датчики или другие API-вызовы. Для работы требуются:
-   - Android-приложение Termux:API;
-   - пакет командной строки `termux-api`, устанавливаемый внутри Termux через `pkg`.
-3. **Termux:Boot** — необязателен. Нужен только если пользователь хочет, чтобы Bridge пытался запускаться после перезагрузки Android. Не устанавливать и не включать без отдельного согласия.
+2. **Termux:API** — необязателен для базового Bridge. Нужен, если позднее включены Android-функции. Для работы требуются Android-приложение Termux:API и CLI package `termux-api` внутри Termux.
+3. **Termux:Boot** — необязателен. Нужен только если пользователь хочет попытаться запускать Bridge после перезагрузки Android. Не устанавливать и не включать без отдельного согласия.
 
-**Важно:** Termux и все его plugin APK должны быть из одного источника сборки/подписи. Например, Termux + Termux:API + Termux:Boot все из F-Droid либо все из GitHub Releases. Смешивание источников может привести к ошибке подписи и невозможности установки плагина поверх основной программы.
+Termux и все plugin APK должны быть из одного источника сборки/подписи. Не смешивать F-Droid и GitHub builds. Bootstrap не может незаметно установить Android APK-плагины.
 
-Bootstrap не может незаметно установить Android APK-плагины без действий/подтверждений пользователя. Он должен проверить наличие приложений, открыть официальную страницу нужного плагина и показать точный ручной шаг. Не скачивать APK с неизвестных сайтов.
+## Что делает текущий install.sh
 
-## Bootstrap
-
-1. Проверить Android release, ABI, Termux package manager, свободное место и сетевую доступность.
-2. Проверить источник/совместимость Termux и установленных plugin APK.
-3. Спросить, нужны ли Android API функции; если да — проверить Termux:API app, предложить официальный источник из той же signing family и установить CLI package `termux-api` через `pkg`.
-4. Спросить, хочет ли пользователь автозапуск после перезагрузки; если да — предложить Termux:Boot из того же источника, попросить запустить приложение один раз и только после согласия создать минимальный boot script.
-5. Установить минимальные runtime packages через `pkg`: Python, Git, OpenSSH, curl, jq и только другие реально необходимые зависимости.
-6. Проверить доступность GitHub CLI в Termux и установить поддерживаемым способом.
-7. Выполнить GitHub CLI browser/device authorization; не передавать credential в чат и не выводить token.
-8. Проверить auth status и необходимые scopes без раскрытия credential.
-9. Создать уникальный private repository и проверить visibility/default branch.
-10. Загрузить чистый operational template в пользовательский private repo.
-11. Сгенерировать уникальные SSH keys и локальные secrets на Android. Не загружать private key в GitHub.
-12. Зарегистрировать только public key у tunnel provider; проверить host fingerprint и known_hosts.
-13. Создать Actions workflow с минимальными permissions и закреплёнными Actions.
-14. Запустить локальный listener и tunnel supervisor.
-15. Выполнить тестовую команду с безопасным эффектом и проверить result mailbox.
+1. Проверяет native Termux и ARM64.
+2. Устанавливает через `pkg` Python, Python cryptography, Git, GitHub CLI, curl, jq и cloudflared.
+3. Клонирует публичный исходный проект в локальную папку приложения и создаёт отдельное Python venv с доступом к Termux-native cryptography package.
+4. Проводит пользователя через GitHub CLI browser authorization, если вход ещё не выполнен.
+5. Создаёт отдельный private repository в аккаунте пользователя и проверяет owner/visibility.
+6. Загружает только чистый operational template.
+7. Создаёт локальную конфигурацию с точными repository/ref/audience и persistent state path.
+8. Запускает локальный listener на loopback.
+9. Поднимает Cloudflare Quick Tunnel, проверяет внешний health endpoint и публикует URL в Actions variable `BRIDGE_TUNNEL_URL`.
+10. Не включает Termux:Boot и не создаёт ненужные SSH private keys.
 
 ## Секреты и конфигурация
 
-- Все пользовательские секреты генерируются при установке на устройстве.
-- Публичный репозиторий никогда не получает секреты.
-- Private operational repository содержит только необходимые несекретные файлы и mailbox.
-- Локальные файлы с секретами исключены из Git и имеют ограниченные права доступа.
-- Не копировать существующие настройки/секреты из другой установки.
+- Публичный репозиторий никогда не получает пользовательские секреты.
+- Private operational repository содержит только workflow и mailbox.
+- GitHub CLI credential хранится самим GitHub CLI.
+- OIDC JWT краткоживущий, запрашивается workflow на каждый запуск и не сохраняется как постоянный секрет.
+- Cloudflare Quick Tunnel не требует пользовательского SSH private key.
+- Локальный конфиг и replay state хранятся вне Git с ограниченными правами.
 - Не выводить credential или private key в логи и диагностику.
-- Установщик должен иметь безопасный режим обновления и не перезаписывать неизвестные пользовательские файлы.
 
 ## Idempotency / resume
 
-- Повторный запуск не должен терять настройки.
-- Каждый этап фиксирует completion marker в локальном state file без секретов.
-- Перед изменением существующего файла — backup.
-- При прерывании продолжать с последнего подтверждённого этапа.
-- Не перезаписывать чужой repository или Termux конфигурацию.
-- Не включать Termux:Boot автоматически без отдельного согласия.
+- Повторный запуск должен сохранять локальную конфигурацию и не создавать новый private repo.
+- Установочный state фиксирует repository, чтобы продолжить создание после прерывания.
+- При обновлении исходников используется fast-forward; локальные изменения не должны молча затираться.
+- Не перезаписывать чужой repository или неизвестные Termux файлы.
+- Полная проверка восстановления на чистом устройстве ещё не завершена.
 
 ## Авторизация
 
-Предпочтительно использовать GitHub CLI browser/device auth. Не создавать PAT только ради обхода браузера. Разделять user auth и Actions OIDC. Не обещать бессрочную авторизацию.
+Предпочтительно использовать GitHub CLI browser/device auth. Не создавать PAT вручную и не передавать credential в чат. Разделять GitHub CLI user auth и Actions OIDC. Не обещать бессрочную авторизацию.
 
 ## Tunnel
 
-Сравнить доступные tunnel providers по поддержке SSH reverse forwarding, host key verification, стабильности URL, ограничениям бесплатного плана и условиям использования. Не привязывать универсальный установщик к одному провайдеру до проверки. URL может изменяться; updater должен безопасно обновлять приватную конфигурацию.
+Первый provider — Cloudflare Quick Tunnel:
+- без Cloudflare account и собственного домена;
+- временный случайный `trycloudflare.com` hostname;
+- URL меняется после перезапуска;
+- нет SLA, до 200 concurrent requests, без SSE;
+- URL публичный, поэтому безопасность webhook обеспечивается OIDC verification, а не секретностью адреса.
 
-## Восстановление
+Для стабильного hostname/production понадобится отдельная настройка named Cloudflare Tunnel. Она не включена в текущий бесплатный bootstrap.
 
-- GitHub auth invalid: предложить повторную авторизацию по запросу пользователя.
-- Tunnel disconnected: проверить tunnel process, URL rotation и health.
-- Bridge stopped: проверить PID/log/health, затем предложить запуск.
-- Actions failure: изучить точные run/job/step logs.
-- OIDC rejection: проверить issuer/audience/repo/ref/time/JWKS.
-- Mailbox stuck: проверить id/sequence/status и не перезаписывать активную команду.
-- Termux:API unavailable: отключить только связанные optional features, не ломать базовый Bridge.
-- Boot startup failure: показать инструкцию ручного запуска и проверить Android battery/background restrictions.
+## Что ещё проверить перед релизом
+
+- Установка с нуля на чистом Termux ARM64.
+- Наличие `python-cryptography` и `cloudflared` в конкретном Termux package source.
+- Реальный GitHub device/browser login и создание private repo.
+- Полный цикл команды от изменения mailbox до terminal result.
+- Повтор команды после потери HTTP ответа и recovery после аварийного завершения.
+- Поведение при остановке Android фоновых процессов и смене Quick Tunnel URL.
+- Безопасное управление start/stop/status и opt-in для Termux:Boot.
