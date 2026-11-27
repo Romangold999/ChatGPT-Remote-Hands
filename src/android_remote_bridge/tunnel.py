@@ -52,7 +52,7 @@ def _paths(config: dict[str, Any]) -> tuple[Path, Path, Path, Path, Path]:
 
 
 def _publish_url(repository: str, url: str) -> None:
-    """Publish the stable URL as mailbox/tunnel-url.txt, as in push-bridge."""
+    """Publish the stable URL as push-bridge/tunnel-url.txt, as in the reference Bridge."""
     if not shutil.which("gh"):
         raise TunnelError("GitHub CLI (gh) is not installed")
     check = subprocess.run(
