@@ -20,7 +20,7 @@
 - [x] Private repo template с command/result mailbox.
 - [x] Push-only workflow, который отправляет только event metadata.
 - [x] Workflow permissions contents:read и id-token:write.
-- [x] mailbox/tunnel-url.txt.
+- [x] push-bridge/tunnel-url.txt.
 - [x] Отдельный private repo пользователя в installer draft.
 - [ ] Проверить GitHub CLI Contents read/write на clean install.
 - [ ] Протестировать две независимые пользовательские установки.
@@ -32,7 +32,7 @@
 - [x] Pinned host key.
 - [x] Reconnect supervisor.
 - [x] External health check and 55-minute tunnel keepalive.
-- [x] Publish stable URL to mailbox/tunnel-url.txt.
+- [x] Publish stable URL to push-bridge/tunnel-url.txt.
 - [ ] Проверить reconnect и stable URL на реальном Android.
 - [ ] Проверить работу при смене сети и Android battery restrictions.
 
