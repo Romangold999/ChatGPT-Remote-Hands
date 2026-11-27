@@ -29,7 +29,7 @@
 Предварительный вид команды (пока не запускать):
 
 ```bash
-tmp="$(mktemp)" && curl -fsSL "https://raw.githubusercontent.com/Romangold999/Android-Remote-Bridge/main/scripts/install.sh" -o "$tmp" && bash "$tmp"; rc=$?; [ -z "${tmp:-}" ] || rm -f "$tmp"; exit "$rc"
+tmp="$(mktemp)" && curl -fsSL "https://raw.githubusercontent.com/Romangold999/ChatGPT-Remote-Hands/main/scripts/install.sh" -o "$tmp" && bash "$tmp"; rc=$?; [ -z "${tmp:-}" ] || rm -f "$tmp"; exit "$rc"
 ```
 
 Команда скачивает установочный скрипт во временный файл и запускает его, сохраняя возможность интерактивных подтверждений в Termux. После завершения временный файл удаляется.
