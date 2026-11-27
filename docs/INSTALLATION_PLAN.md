@@ -6,7 +6,7 @@
 
 Реализация повторяет рабочий Termux Push Bridge и работает по push-событиям:
 
-1. GPT записывает mailbox/command.json со статусом ready в приватный operational repository.
+1. GPT записывает push-bridge/command.json со статусом ready в приватный operational repository.
 2. Push запускает GitHub Actions.
 3. Actions checkout-ит точный commit, получает OIDC JWT и отправляет через tunnl.gg только событие с repository/ref/after/timestamp.
 4. Termux проверяет OIDC и событие, затем fetch-ит command.json по точному SHA.
@@ -29,7 +29,7 @@ Termux не опрашивает GitHub и не делает запросы за
 9. Помогает зарегистрировать ключ для stable URL.
 10. Запускает локальный listener и отдельный tunnel supervisor.
 11. Проверяет локальный и внешний /health.
-12. Записывает актуальный tunnel URL в mailbox/tunnel-url.txt через GitHub CLI.
+12. Записывает актуальный tunnel URL в push-bridge/tunnel-url.txt через GitHub CLI.
 
 Повторный запуск должен безопасно продолжать установку, не создавать лишние репозитории и не затрагивать другие Bridge установки.
 
@@ -51,11 +51,11 @@ Listener проверяет RS256/JWKS, issuer, audience, точные repositor
 
 Команда выполняется через bash -lc в HOME Termux. Поддерживаются stdout, stderr, exit code и timeout от 1 до 3600 секунд. Максимальная длина команды — 20 000 символов. Это полноценное исполнение в рамках Android app sandbox, не root и не отдельная sandbox-среда.
 
-Доступ на запись в mailbox/command.json фактически даёт право выполнять команды от имени пользователя Termux. Operational repo обязан быть private.
+Доступ на запись в push-bridge/command.json фактически даёт право выполнять команды от имени пользователя Termux. Operational repo обязан быть private.
 
 ## Tunnel
 
-Используется tunnl.gg reverse SSH tunnel с отдельным Ed25519 ключом на каждую установку. URL хранится в mailbox/tunnel-url.txt. Supervisor переподключается после обрыва; health ping раз в 55 минут нужен только для поддержания туннеля. Публичный tunnel URL не является паролем.
+Используется tunnl.gg reverse SSH tunnel с отдельным Ed25519 ключом на каждую установку. URL хранится в push-bridge/tunnel-url.txt. Supervisor переподключается после обрыва; health ping раз в 55 минут нужен только для поддержания туннеля. Публичный tunnel URL не является паролем.
 
 ## Проверки перед релизом
 
