@@ -49,7 +49,7 @@ class StateTests(unittest.TestCase):
             with self.assertRaises(StateError):
                 ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID)
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=2, jti="token-3", command_id="different-id")
+                ReplayState(path).accept(sequence=3, jti="token-3", command_id="future-id")
             self.assertIsNone(
                 ReplayState(path).accept(sequence=2, jti="token-3", command_id="next-id")
             )
@@ -59,7 +59,7 @@ class StateTests(unittest.TestCase):
             path = Path(tmp) / "state.json"
             path.write_text("broken", encoding="utf-8")
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=1, jti="x")
+                ReplayState(path).accept(sequence=1, jti="x", command_id=COMMAND_ID)
 
 
 class OIDCTests(unittest.TestCase):
