@@ -12,7 +12,7 @@
 - reconnect после обрыва;
 - URL сохраняется в push-bridge/tunnel-url.txt приватного operational repo.
 
-Туннель не опрашивает GitHub. Входящий запрос появляется только после push-события GitHub Actions. Отдельный health ping к собственному /health раз в 55 минут — это keepalive туннеля, а не проверка наличия новых команд.
+Входящий запрос поступает после push-события GitHub Actions. Отдельный health ping к собственному /health раз в 55 минут поддерживает активность туннеля.
 
 Официальные материалы:
 - https://tunnl.gg/docs
