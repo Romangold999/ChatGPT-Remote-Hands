@@ -1,14 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -eu
 
-# Install the Tank 2 public key in this Termux user's authorized_keys.
-KEY_FILE="$HOME/.ssh/id_ed25519.pub"
-if [ ! -f "$KEY_FILE" ]; then
-  echo "ERROR: Tank 2 public key file was not found."
-  exit 1
-fi
-
-KEY="$(cat "$KEY_FILE")"
+# Add the Tank 2 public key to this Honor Termux account.
+KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIApSScRDJXqNUsCOO6Qx79tyu8dND9I6z7A/VTTFlf2c tank2-to-honor-termux'
 SSH_DIR="$HOME/.ssh"
 AUTH="$SSH_DIR/authorized_keys"
 
