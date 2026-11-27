@@ -70,7 +70,7 @@ def _publish_url(repository: str, url: str) -> None:
     )
     if lookup.returncode != 0 or not lookup.stdout.strip():
         raise TunnelError("could not read mailbox/tunnel-url.txt in the private repository")
-    encoded = base64.b64encode((url.rstrip("/") + "\\n").encode("utf-8")).decode("ascii")
+    encoded = base64.b64encode((url.rstrip("/") + "\n").encode("utf-8")).decode("ascii")
     result = subprocess.run(
         [
             "gh", "api", f"repos/{repository}/contents/{path}", "--method", "PUT",
