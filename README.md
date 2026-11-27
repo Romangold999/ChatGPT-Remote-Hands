@@ -95,7 +95,7 @@ Termux и все его плагины должны быть установле�
 
 ## Установщик
 
-Первый экспериментальный сценарий запускается одной командой из Termux. Скрипт устанавливает зависимости, авторизует GitHub CLI, создаёт личный private repo, запускает Bridge и Quick Tunnel. Полный end-to-end тест команды и результата ещё предстоит добавить:
+Первый экспериментальный сценарий запускается одной командой из Termux. Скрипт устанавливает зависимости, авторизует GitHub CLI, создаёт личный private repo, запускает Bridge и стабильный tunnl.gg SSH-туннель. Полный end-to-end тест команды и результата ещё предстоит добавить:
 
 1. Проверить native Termux и архитектуру ARM64.
 2. Установить Python, Termux-native cryptography, Git, GitHub CLI, curl, jq и openssh.
@@ -127,7 +127,7 @@ Termux и все его плагины должны быть установле�
 | `docs/PROJECT_STRUCTURE.md` | Карта каталогов и границы хранения данных |
 | `CONTRIBUTING.md` | Правила безопасного участия в проекте |
 | `pyproject.toml` | Метаданные Python-пакета и настройки инструментов |
-| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, lifecycle CLI, allowlist executor и Cloudflare tunnel manager |
+| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, lifecycle CLI, allowlist executor и tunnl.gg SSH reverse-tunnel supervisor |
 | `templates/operational-repo/` | Чистый шаблон индивидуального приватного repo: workflow и mailbox |
 | `templates/local/` | Пример локальной конфигурации пользователя без секретов |
 | `scripts/install.sh` | Первый bootstrap-скрипт для Termux ARM64 (экспериментальный, не release) |
@@ -153,7 +153,7 @@ Termux и все его плагины должны быть установле�
 - GitHub connector в ChatGPT может не поддерживать запись. Нужен подтверждённый write-capable канал.
 - HTTP 202 означает, что webhook принят, но не то, что команда выполнена.
 - Успешный GitHub Actions run не доказывает выполнение на телефоне: нужно проверить result mailbox.
-- tunnl.gg stable SSH reverse tunnel не требует аккаунта или домена, но выдаёт временный случайный URL, не гарантирует uptime и ограничивает одновременные запросы.
+- tunnl.gg stable URL привязан к зарегистрированному Ed25519-ключу; бесплатный режим ограничен 2 часами бездействия, 24 часами на сессию и 5 GB передачи в сутки.
 - Android может останавливать фоновые процессы. Работа 24/7 не гарантируется.
 - GitHub authorization может быть отозвана и потребовать повторного входа.
 - Termux:API и Termux:Boot — отдельные приложения-плагины; `pkg install` не устанавливает их APK.
