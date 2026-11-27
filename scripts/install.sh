@@ -114,7 +114,7 @@ from pathlib import Path
 
 target = Path(sys.argv[1])
 data = {
-    "audience": "termux-bridge",
+    "audience": "termux-push-bridge",
     "repository": sys.argv[2],
     "ref": "refs/heads/main",
     "state_file": sys.argv[3],
@@ -128,6 +128,23 @@ os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
 fi
+
+# Migrate an earlier experimental local config to the push-event protocol.
+"$VENV_DIR/bin/python" - "$CONFIG_FILE" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+target = Path(sys.argv[1])
+data = json.loads(target.read_text(encoding="utf-8"))
+data["audience"] = "termux-push-bridge"
+data["ref"] = "refs/heads/main"
+data["port"] = 18767
+temporary = target.with_suffix(".tmp")
+temporary.write_text(json.dumps(data, indent=2) + "\\n", encoding="utf-8")
+os.chmod(temporary, 0o600)
+temporary.replace(target)
+PY
 
 REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
 REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
