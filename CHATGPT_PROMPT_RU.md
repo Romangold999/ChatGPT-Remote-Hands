@@ -178,7 +178,7 @@
 2. Локальный /health отвечает.
 3. Tunnel supervisor запущен.
 4. Внешний HTTPS /health отвечает.
-5. В private repo настроена Actions variable BRIDGE_TUNNEL_URL (сам URL не публиковать).
+5. В private repo файл mailbox/tunnel-url.txt содержит текущий стабильный HTTPS URL tunnl.gg.
 6. В private repo есть workflow.
 7. Workflow получает OIDC token с правильной audience.
 8. Тестовая команда действительно достигает телефона.
