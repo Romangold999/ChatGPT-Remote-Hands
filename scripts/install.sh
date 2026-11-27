@@ -90,9 +90,9 @@ else
     || die "Could not clone the private operational repository; rerun the installer to resume."
   WORK_REPO="$TEMP_REPO/repo"
   if ! git -C "$WORK_REPO" rev-parse --verify HEAD >/dev/null 2>&1; then
-    git -C "$WORK_REPO" checkout -B main
-  elif [[ "$(git -C "$WORK_REPO" branch --show-current)" != "main" ]]; then
-    git -C "$WORK_REPO" checkout -B main
+    git -C "$WORK_REPO" checkout -B push-bridge
+  elif [[ "$(git -C "$WORK_REPO" branch --show-current)" != "push-bridge" ]]; then
+    git -C "$WORK_REPO" checkout -B push-bridge
   fi
   cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
   git -C "$WORK_REPO" config user.name "Android Remote Bridge Installer"
@@ -101,8 +101,8 @@ else
   if ! git -C "$WORK_REPO" diff --cached --quiet; then
     git -C "$WORK_REPO" commit -m "Initialize personal Android Remote Bridge mailbox"
   fi
-  git -C "$WORK_REPO" push -u origin main
-  gh repo edit "$FULL_REPO" --default-branch main
+  git -C "$WORK_REPO" push -u origin push-bridge
+  gh repo edit "$FULL_REPO" --default-branch push-bridge
   rm -rf "$TEMP_REPO"
   trap - EXIT
 
@@ -116,7 +116,7 @@ target = Path(sys.argv[1])
 data = {
     "audience": "termux-push-bridge",
     "repository": sys.argv[2],
-    "ref": "refs/heads/main",
+    "ref": "refs/heads/push-bridge",
     "state_file": sys.argv[3],
     "port": 18767,
     "tunnel_key": str(Path.home() / ".ssh" / "android-remote-bridge_ed25519"),
@@ -138,7 +138,7 @@ from pathlib import Path
 target = Path(sys.argv[1])
 data = json.loads(target.read_text(encoding="utf-8"))
 data["audience"] = "termux-push-bridge"
-data["ref"] = "refs/heads/main"
+data["ref"] = "refs/heads/push-bridge"
 data["port"] = 18767
 temporary = target.with_suffix(".tmp")
 temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
