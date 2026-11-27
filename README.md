@@ -129,13 +129,14 @@ Termux и все его плагины должны быть установле�
 | `docs/PROJECT_STRUCTURE.md` | Карта каталогов и границы хранения данных |
 | `CONTRIBUTING.md` | Правила безопасного участия в проекте |
 | `pyproject.toml` | Метаданные Python-пакета и настройки инструментов |
-| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener и allowlist executor |
+| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener, allowlist executor и Cloudflare tunnel manager |
 | `templates/operational-repo/` | Чистый шаблон индивидуального приватного repo: workflow и mailbox |
+| `templates/local/` | Пример локальной конфигурации пользователя без секретов |
 | `tests/` | Unit-тесты протокола и runtime |
 | `.github/workflows/ci.yml` | Автоматический запуск unit-тестов при push и pull request |
 | `.gitignore` | Исключения локальных секретов и runtime-файлов |
 
-Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state, три встроенные операции без shell и шаблон workflow для приватного operational repo. CI устанавливает Python-пакет и запускает тесты. Каталог `scripts/` и полноценный `install.sh` ещё не созданы; tunnel provider и end-to-end сценарий не подключены.
+Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state с кэшированием результата, три встроенные операции без shell, шаблон workflow для приватного operational repo и менеджер Cloudflare Quick Tunnel. CI устанавливает Python-пакет и запускает тесты. Полноценный `install.sh` и end-to-end проверка на реальном Android ещё не готовы.
 
 ## Принципы проекта
 
