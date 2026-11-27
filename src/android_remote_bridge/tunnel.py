@@ -275,6 +275,11 @@ def start(config_path: Path) -> str:
                 _publish_url(repository, url)
                 return url
         time.sleep(0.5)
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except OSError:
+        pass
+    pid_file.unlink(missing_ok=True)
     raise TunnelError("timed out waiting for a healthy tunnl.gg stable URL; inspect tunnl.log")
 
 
@@ -305,7 +310,7 @@ def status(config_path: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Manage this user's tunnl.gg SSH reverse tunnel")
-    parser.add_argument("action", choices=("start", "stop", "status", "register"))
+    parser.add_argument("action", nargs="?", choices=("start", "stop", "status", "register"))
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
