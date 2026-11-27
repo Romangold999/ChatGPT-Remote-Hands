@@ -53,7 +53,9 @@ gh auth status --hostname github.com >/dev/null 2>&1 || die "GitHub CLI authoriz
 OWNER="$(gh api user --jq .login)"
 [[ -n "$OWNER" ]] || die "Could not determine the authenticated GitHub owner."
 
+EXISTING_CONFIG=0
 if [[ -f "$CONFIG_FILE" ]]; then
+  EXISTING_CONFIG=1
   FULL_REPO="$("$VENV_DIR/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["repository"])' "$CONFIG_FILE")"
   [[ "$FULL_REPO" == "$OWNER/"* ]] || die "Existing local config belongs to a different GitHub owner."
   REPO_NAME="${FULL_REPO#*/}"
@@ -145,6 +147,44 @@ temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
+
+if [[ "$EXISTING_CONFIG" == "1" ]]; then
+  say "Migrating the existing private repository to the push-bridge mailbox layout..."
+  gh auth setup-git
+  TEMP_REPO="$(mktemp -d "${TMPDIR:-$PREFIX/tmp}/arb-migrate.XXXXXX")"
+  cleanup_migration() { rm -rf "$TEMP_REPO"; }
+  trap cleanup_migration EXIT
+  git clone "https://github.com/$FULL_REPO.git" "$TEMP_REPO/repo" \
+    || die "Could not clone the existing private operational repository."
+  WORK_REPO="$TEMP_REPO/repo"
+
+  for pending_file in "$WORK_REPO/mailbox/command.json" "$WORK_REPO/push-bridge/command.json"; do
+    if [[ -f "$pending_file" ]] && jq -e '.status == "pending" or .status == "ready"' "$pending_file" >/dev/null; then
+      die "A command is still pending in the existing operational repository. Wait for its result before upgrading."
+    fi
+  done
+
+  if git -C "$WORK_REPO" ls-remote --exit-code --heads origin push-bridge >/dev/null 2>&1; then
+    git -C "$WORK_REPO" fetch origin push-bridge
+    git -C "$WORK_REPO" checkout -B push-bridge origin/push-bridge
+  elif git -C "$WORK_REPO" rev-parse --verify HEAD >/dev/null 2>&1; then
+    git -C "$WORK_REPO" checkout -B push-bridge
+  else
+    git -C "$WORK_REPO" checkout --orphan push-bridge
+  fi
+
+  cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
+  git -C "$WORK_REPO" config user.name "Android Remote Bridge Installer"
+  git -C "$WORK_REPO" config user.email "$OWNER@users.noreply.github.com"
+  git -C "$WORK_REPO" add -A
+  if ! git -C "$WORK_REPO" diff --cached --quiet; then
+    git -C "$WORK_REPO" commit -m "Migrate private operational repo to push-bridge protocol"
+  fi
+  git -C "$WORK_REPO" push -u origin push-bridge
+  gh repo edit "$FULL_REPO" --default-branch push-bridge
+  rm -rf "$TEMP_REPO"
+  trap - EXIT
+fi
 
 REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
 REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
