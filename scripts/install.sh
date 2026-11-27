@@ -81,11 +81,6 @@ else
     say "Creating your own private GitHub repository: $FULL_REPO"
     gh repo create "$FULL_REPO" --private --description "Private Android Remote Bridge mailbox for $OWNER"
   fi
-  REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
-  REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
-  [[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] \
-    || die "The operational repository owner or visibility check failed."
-
   gh auth setup-git
   TEMP_REPO="$(mktemp -d "${TMPDIR:-$PREFIX/tmp}/arb-repo.XXXXXX")"
   cleanup() { rm -rf "$TEMP_REPO"; }
@@ -130,6 +125,11 @@ os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
 fi
+
+REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
+REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
+[[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] \
+  || die "The operational repository owner or visibility check failed."
 
 if ! curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null 2>&1; then
   say "Starting your local Bridge listener..."
