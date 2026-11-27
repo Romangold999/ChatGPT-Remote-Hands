@@ -141,7 +141,7 @@ data["audience"] = "termux-push-bridge"
 data["ref"] = "refs/heads/main"
 data["port"] = 18767
 temporary = target.with_suffix(".tmp")
-temporary.write_text(json.dumps(data, indent=2) + "\\n", encoding="utf-8")
+temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
