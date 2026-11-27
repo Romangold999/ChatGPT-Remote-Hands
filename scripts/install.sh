@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-REPO_URL="https://github.com/Romangold999/Android-Remote-Bridge.git"
+REPO_URL="https://github.com/Romangold999/ChatGPT-Remote-Hands.git"
 APP_ROOT="${HOME}/.local/share/android-remote-bridge"
 SOURCE_DIR="${APP_ROOT}/source"
 VENV_DIR="${APP_ROOT}/venv"
