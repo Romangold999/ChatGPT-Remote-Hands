@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -90,6 +91,15 @@ def load_config(path: Path) -> dict[str, Any]:
     required = {"audience", "repository", "ref", "state_file"}
     if not isinstance(data, dict) or required - set(data):
         raise ValueError("config is missing required fields")
+    for field in required:
+        if not isinstance(data[field], str) or not data[field].strip():
+            raise ValueError(f"config field {field} must be a non-empty string")
+    if data["audience"] != "termux-bridge":
+        raise ValueError("config audience must match the operational workflow")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", data["repository"]):
+        raise ValueError("config repository must be OWNER/REPOSITORY")
+    if data["ref"] != "refs/heads/main":
+        raise ValueError("config ref must match the operational workflow branch")
     return data
 
 
