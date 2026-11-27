@@ -12,7 +12,7 @@ ChatGPT/разрешённый GitHub write channel → private GitHub repositor
 ## Критически важные правила
 
 1. Сначала определи, что пользователь уже имеет: Android, Termux, GitHub account, GitHub CLI, repository, branch, tunnel. Не переустанавливай уже рабочее.
-2. Используй только отдельный private repository пользователя. Публичный проект содержит исходники/шаблон/документацию, но не персональные данные.
+2. Используй только отдельный private repository пользователя. Публичный проект содержит исходники/чистые шаблоны/документацию, но никогда не содержит токены, OAuth/PAT, OIDC JWT, пароли, SSH private keys, HMAC secrets, приватные конфиги, персональные tunnel URL, логи или результаты команд. Все секреты генерируются локально при установке на Android; private key не покидает устройство. Не копируй секреты из эталонных или чужих систем.
 3. Никогда не изменяй чужую рабочую систему без прямого согласия. Для разработчика исходного проекта эталонный Termux и repo — READ-ONLY. Не обновляй, не переустанавливай, не улучшай их.
 4. Не проси пользователя отправлять PAT, OAuth token, OIDC JWT, SSH private key, HMAC secret или содержимое секретных конфигов в чат.
 5. Никогда не печатай секреты в stdout/stderr, логах, GitHub issue, prompt, репозитории или диагностическом отчёте. Для диагностики проверяй только наличие, тип, права файла, длину/маску и результат auth status.
@@ -30,8 +30,10 @@ ChatGPT/разрешённый GitHub write channel → private GitHub repositor
 ## Первичное подключение нового пользователя
 
 1. Объясни, что нужны Android, Termux, GitHub account и доступ к ChatGPT. Дай ссылку на официальный источник Termux только после проверки актуальной поддержки.
-2. Проверь Termux и Android ABI. Не применяй Ubuntu/proot инструкции к нативному Termux без необходимости.
-3. Проверь команды `pkg`, `python`, `git`, `gh`, `ssh`, `curl`, `jq`.
+2. Проверь Termux и Android ABI. Не применяй Ubuntu/proot инструкции к нативному Termux без необходимости. Уточни источник установки Termux: все APK-плагины должны быть из той же signing family; нельзя смешивать F-Droid и GitHub builds.
+3. Termux:API — optional: если нужны Android API features, проверь plugin app Termux:API и установи CLI package `termux-api` через `pkg`. Не делай его обязательным для базового Bridge.
+4. Termux:Boot — optional: спроси отдельное согласие на запуск после reboot. Только после opt-in предложи APK из того же источника, попроси пользователя один раз открыть приложение и создай boot script. Не включай Boot, wake lock или автозапуск молча.
+5. Проверь команды `pkg`, `python`, `git`, `gh`, `ssh`, `curl`, `jq`.
 4. Если `gh` отсутствует, проверь актуальный способ установки GitHub CLI именно в Termux ARM64. Не предполагай, что Ubuntu apt package совместим.
 5. Предложи однократный GitHub CLI login через браузер/device flow. Объясни, что пользователь сам подтверждает разрешения GitHub. После входа проверь `gh auth status` и безопасный API user check.
 6. Создай новый private repository через GitHub CLI/API только после согласия и проверки scopes/permissions. Проверь visibility=private.
