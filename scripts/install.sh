@@ -85,13 +85,12 @@ else
   cleanup() { rm -rf "$TEMP_REPO"; }
   trap cleanup EXIT
 
-  git clone "https://github.com/$FULL_REPO.git" "$TEMP_REPO/repo" 2>/dev/null || {
-    mkdir -p "$TEMP_REPO/repo"
-    git -C "$TEMP_REPO/repo" init -b main
-    git -C "$TEMP_REPO/repo" remote add origin "https://github.com/$FULL_REPO.git"
-  }
+  git clone "https://github.com/$FULL_REPO.git" "$TEMP_REPO/repo" \
+    || die "Could not clone the private operational repository; rerun the installer to resume."
   WORK_REPO="$TEMP_REPO/repo"
   if ! git -C "$WORK_REPO" rev-parse --verify HEAD >/dev/null 2>&1; then
+    git -C "$WORK_REPO" checkout -B main
+  elif [[ "$(git -C "$WORK_REPO" branch --show-current)" != "main" ]]; then
     git -C "$WORK_REPO" checkout -B main
   fi
   cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
@@ -102,6 +101,7 @@ else
     git -C "$WORK_REPO" commit -m "Initialize personal Android Remote Bridge mailbox"
     git -C "$WORK_REPO" push -u origin main
   fi
+  gh repo edit "$FULL_REPO" --default-branch main
   rm -rf "$TEMP_REPO"
   trap - EXIT
 
