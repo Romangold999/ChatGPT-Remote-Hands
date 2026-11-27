@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -55,11 +56,12 @@ class OIDCTests(unittest.TestCase):
     def test_real_rs256_signature_and_claims_are_verified(self) -> None:
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         public_key = private_key.public_key()
+        now = int(time.time())
         claims = {
             "iss": "https://token.actions.githubusercontent.com",
             "aud": "termux-bridge",
-            "exp": 2_000_000_000,
-            "iat": 1_900_000_000,
+            "exp": now + 300,
+            "iat": now,
             "jti": "unique-token-id",
             "repository": "owner/private-repo",
             "ref": "refs/heads/main",
