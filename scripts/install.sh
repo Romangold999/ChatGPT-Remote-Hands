@@ -176,6 +176,8 @@ if [[ "$EXISTING_CONFIG" == "1" ]]; then
   fi
 
   cp -R -n "$SOURCE_DIR/templates/operational-repo/." "$WORK_REPO/"
+  mkdir -p "$WORK_REPO/.github/workflows"
+  cp -f "$SOURCE_DIR/templates/operational-repo/.github/workflows/push-bridge.yml" "$WORK_REPO/.github/workflows/push-bridge.yml"
   git -C "$WORK_REPO" config user.name "Android Remote Bridge Installer"
   git -C "$WORK_REPO" config user.email "$OWNER@users.noreply.github.com"
   git -C "$WORK_REPO" add -A
