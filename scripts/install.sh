@@ -118,6 +118,7 @@ data = {
     "repository": sys.argv[2],
     "ref": "refs/heads/main",
     "state_file": sys.argv[3],
+    "port": 18767,
     "tunnel_key": str(Path.home() / ".ssh" / "android-remote-bridge_ed25519"),
     "known_hosts": str(Path.home() / ".ssh" / "known_hosts_android_remote_bridge"),
 }
@@ -136,20 +137,12 @@ say "Preparing your personal tunnl.gg SSH identity..."
 SSH_DIR="$HOME/.ssh"
 mkdir -p "$SSH_DIR"
 chmod 700 "$SSH_DIR"
-if [[ -f "$HOME/.ssh/termux-push-bridge_ed25519" && -f "$HOME/.config/termux-push-bridge/known_hosts" ]]; then
-  TUNNEL_KEY="$HOME/.ssh/termux-push-bridge_ed25519"
-  KNOWN_HOSTS="$HOME/.config/termux-push-bridge/known_hosts"
-  REUSE_TUNNL_KEY=1
-  say "Found your existing registered tunnl.gg key; reusing its path without reading or copying the private key."
-else
-  TUNNEL_KEY="$SSH_DIR/android-remote-bridge_ed25519"
-  KNOWN_HOSTS="$SSH_DIR/known_hosts_android_remote_bridge"
-  REUSE_TUNNL_KEY=0
-  if [[ ! -f "$TUNNEL_KEY" ]]; then
-    ssh-keygen -q -t ed25519 -N "" -C "android-remote-bridge@$OWNER" -f "$TUNNEL_KEY"
-    chmod 600 "$TUNNEL_KEY"
-    chmod 644 "$TUNNEL_KEY.pub"
-  fi
+TUNNEL_KEY="$SSH_DIR/android-remote-bridge_ed25519"
+KNOWN_HOSTS="$SSH_DIR/known_hosts_android_remote_bridge"
+if [[ ! -f "$TUNNEL_KEY" ]]; then
+  ssh-keygen -q -t ed25519 -N "" -C "android-remote-bridge@$OWNER" -f "$TUNNEL_KEY"
+  chmod 600 "$TUNNEL_KEY"
+  chmod 644 "$TUNNEL_KEY.pub"
 fi
 "$VENV_DIR/bin/python" - "$CONFIG_FILE" "$TUNNEL_KEY" "$KNOWN_HOSTS" <<'PY'
 import json
@@ -166,7 +159,7 @@ os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
 
-if [[ "$REUSE_TUNNL_KEY" == "0" && ! -f "$STATE_DIR/tunnl-key-registered" ]]; then
+if [[ ! -f "$STATE_DIR/tunnl-key-registered" ]]; then
   say "One-time tunnl.gg key registration is required for a stable URL."
   say "A browser link will appear in the SSH session. Open it, finish the free account/key registration, then return here."
   "$VENV_DIR/bin/android-remote-bridge-tunnel" register --config "$CONFIG_FILE"
@@ -178,7 +171,7 @@ fi
 
 say "Starting your local Bridge listener..."
 "$VENV_DIR/bin/android-remote-bridge" start --config "$CONFIG_FILE"
-curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null \
+curl --fail --silent http://127.0.0.1:18767/health | jq -e '.status == "ok"' >/dev/null \
   || die "Local Bridge did not become healthy. Check $STATE_DIR/bridge.log"
 
 say "Starting your stable tunnl.gg SSH tunnel and updating your private repo..."
