@@ -1,0 +1,6 @@
+{
+  "audience": "termux-bridge",
+  "repository": "OWNER/PRIVATE_REPOSITORY",
+  "ref": "refs/heads/main",
+  "state_file": "~/.local/state/android-remote-bridge/replay-state.json"
+}
