@@ -22,6 +22,7 @@ from android_remote_bridge.oidc import (
 from android_remote_bridge.protocol import parse_command
 from android_remote_bridge.server import BridgeHandler
 from android_remote_bridge.state import ReplayState, StateError
+from android_remote_bridge.tunnel import _URL_PATTERN
 
 COMMAND_ID = "123e4567-e89b-12d3-a456-426614174000"
 
@@ -93,6 +94,13 @@ class OIDCTests(unittest.TestCase):
             with patch("android_remote_bridge.oidc.jwt.decode", return_value=claims):
                 with self.assertRaises(AuthenticationError):
                     verifier.verify("header.payload.signature")
+
+
+class TunnelTests(unittest.TestCase):
+    def test_quick_tunnel_url_parser(self) -> None:
+        match = _URL_PATTERN.search("INF | https://blue-river-123.trycloudflare.com")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(0), "https://blue-river-123.trycloudflare.com")
 
 
 class ListenerTests(unittest.TestCase):
