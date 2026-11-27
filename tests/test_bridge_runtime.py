@@ -53,7 +53,13 @@ class StateTests(unittest.TestCase):
                 result,
             )
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID)
+                ReplayState(path).accept(
+                    sequence=1, jti="token-2", command_id=COMMAND_ID, command_hash="hash-1"
+                )
+            with self.assertRaises(StateError):
+                ReplayState(path).accept(
+                    sequence=1, jti="token-2b", command_id=COMMAND_ID, command_hash="different-hash"
+                )
             with self.assertRaises(StateError):
                 ReplayState(path).accept(
                     sequence=3, jti="token-3", command_id="future-id", command_hash="hash-3"
