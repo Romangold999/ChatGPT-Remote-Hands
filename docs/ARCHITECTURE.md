@@ -2,15 +2,29 @@
 
 ## Поток данных
 
-1. AI assistant формирует команду в mailbox приватного репозитория пользователя через доступный write-capable канал.
-2. Push запускает GitHub Actions.
-3. Workflow получает краткоживущий OIDC ID token с заданной audience.
-4. Workflow отправляет событие через HTTPS tunnel на локальный listener Android.
-5. Listener проверяет подпись JWT по GitHub JWKS и claims: issuer, audience, repository, ref, timestamps; применяет replay protection.
-6. Listener проверяет mailbox, sequence и разрешённость операции.
-7. Выполняется разрешённая операция с timeout и лимитом вывода.
-8. Результат записывается в result mailbox приватного репозитория.
-9. AI assistant отдельно читает результат и проверяет его ID/status.
+1. AI assistant или другой write-capable канал записывает команду в mailbox приватного репозитория пользователя.
+2. Push файла `mailbox/command.json` запускает GitHub Actions.
+3. Workflow получает краткоживущий OIDC ID token с audience `termux-bridge`.
+4. Workflow отправляет JSON-команду через HTTPS tunnel на локальный listener Android.
+5. Listener проверяет подпись JWT по GitHub JWKS, issuer, audience, точные claims repository/ref и временные claims.
+6. Listener проверяет envelope, persistent sequence и jti replay protection.
+7. Выполняется только операция из локального allowlist; произвольный shell не поддерживается.
+8. Listener возвращает структурированный результат workflow.
+9. Workflow записывает результат в `mailbox/result.json` приватного репозитория.
+10. AI assistant отдельно читает результат и проверяет ID, sequence и status.
+
+## Реализовано в текущем коде
+
+- Listener на стандартной библиотеке Python, привязанный только к `127.0.0.1:18766`.
+- Endpoint `GET /health` и `POST /webhook`.
+- OIDC JWT verification через GitHub JWKS и PyJWT: RS256, issuer, audience, exp/iat, repository, ref и jti.
+- Persistent replay/sequence state с атомарной заменой файла и правами 0600.
+- Envelope parser с лимитом 16 KiB и строгим allowlist.
+- Executor без shell/subprocess для `bridge.status`, `bridge.health`, `system.info`.
+- Шаблон operational repo: workflow вызывает tunnel, затем сохраняет JSON result в приватный mailbox.
+- CI устанавливает пакет и зависимости и запускает unit tests.
+
+Это начальный рабочий слой, а не готовый пользовательский установщик. В частности, ещё нет end-to-end проверки с реальным tunnel provider, полной автоматической настройки GitHub repo и устойчивого восстановления незавершённого dispatch после аварийного завершения процесса.
 
 ## Границы и места хранения
 
@@ -18,45 +32,35 @@
 Только универсальный код, чистые шаблоны, документация и тесты. Запрещено добавлять пользовательские или разработческие токены, OAuth/PAT, OIDC JWT, пароли, SSH private keys, HMAC secrets, приватные конфиги, персональные tunnel URL, логи и результаты команд.
 
 ### Приватный operational repository пользователя
-Отдельный репозиторий для каждого пользователя. В нём находятся mailbox, workflow и индивидуальные несекретные параметры. Не помещать туда private keys, PAT/OAuth credentials, HMAC secrets или долговременные bearer tokens. По возможности использовать OIDC для workflow identity.
+Отдельный репозиторий для каждого пользователя. В нём находятся mailbox и workflow. Персональный tunnel URL хранится как Actions variable `BRIDGE_TUNNEL_URL`, а не в публичном шаблоне. Не помещать туда private keys, PAT/OAuth credentials, HMAC secrets или долговременные bearer tokens.
 
 ### Локальное Android-хранилище
-Bootstrap генерирует уникальные ключи и секреты непосредственно на устройстве. GitHub CLI credential хранится механизмом GitHub CLI. Приватный SSH key и локальная конфигурация должны иметь права доступа только владельцу приложения (например, chmod 600 для файлов, где применимо) и исключаться из Git/backup/export. Не печатать значения секретов, даже в debug mode.
+Локальная конфигурация и persistent replay state хранятся вне Git. Bootstrap должен создавать их на устройстве, ограничивать доступ к файлам и не печатать секреты. Private key никогда не покидает устройство.
 
 ### GitHub Actions
-OIDC JWT запрашивается в момент выполнения workflow с минимальными permissions, обычно `contents: read` и `id-token: write`. JWT краткоживущий, проверяется локальным listener и не сохраняется как постоянный секрет. Дополнительные права выдаются только для конкретной обоснованной операции.
+OIDC JWT запрашивается во время workflow с минимальными permissions. В шаблоне используются `contents: write` для публикации результата и `id-token: write` для краткоживущего OIDC токена. JWT не сохраняется как постоянный секрет.
 
 ## Termux и Android add-ons
 
 - Termux — обязательная базовая среда.
-- Termux:API — опциональный Android plugin для вызова функций Android из CLI. Если проект использует его API, нужны APK приложения Termux:API и CLI package `termux-api` внутри Termux; запросить только необходимые Android permissions.
-- Termux:Boot — опциональный plugin для запуска скриптов после перезагрузки. Установка, первый запуск приложения и создание boot script происходят только после явного opt-in. Не включать автозапуск по умолчанию.
-- Все Termux APK и plugin APK должны быть из одного совместимого источника подписи. Не смешивать F-Droid/GitHub builds.
+- Termux:API — опционален. Для Android API функций нужны APK приложения Termux:API и CLI package `termux-api` внутри Termux.
+- Termux:Boot — опционален и настраивается только после явного opt-in.
+- Все Termux APK и plugin APK должны быть из одного совместимого источника подписи.
 
 ## Workflow security
 
-- Минимальные permissions; дополнительные права только при доказанной необходимости.
 - Concurrency lock сериализует dispatch.
 - Third-party Actions закреплены по immutable commit SHA.
-- OIDC audience, repository и ref генерируются для конкретного пользователя.
-- Проверяются подпись, issuer, audience, repository, ref, timestamps и replay.
-- HTTP 200/202 означает принятие события endpoint-ом, а не успешное выполнение команды.
-
-## Security boundaries
-
-- Listener привязан только к loopback-интерфейсу; публичный доступ только через туннель.
-- Private key никогда не покидает устройство; tunnel provider получает только public key.
-- Секреты не должны попадать в stdout/stderr, логи, Git history или отчёты.
-- Команды выполняются с минимальными полномочиями, ограниченным временем и контролируемым выводом.
-- Chunked transfer проверяет целостность частей, порядок, общий размер и срок жизни передачи.
+- OIDC audience, repository и ref проверяются локальным listener.
+- Workflow принимает только HTTPS URL и ограничивает время HTTP-запроса.
+- Результат публикуется в operational repo; успешный HTTP ответ и успешный workflow не следует путать с проверкой terminal result.
 
 ## Что ещё требуется реализовать и проверить
 
-- Полностью автоматизированный bootstrap и resume на чистом Termux.
-- Определение необходимости Termux:API и безопасная установка CLI-пакета.
-- Опциональная установка и opt-in настройка Termux:Boot.
-- Генерация repository/ref/audience для каждого пользователя.
-- Поддерживаемый write path для mailbox; GitHub connector ChatGPT может быть read-only.
-- Tunnel registration, reconnect и URL rotation.
+- Идемпотентное восстановление после разрыва соединения между исполнением и публикацией результата.
+- Полная автоматизация создания private repo и настройки Actions variable.
+- Tunnel provider manager, регистрация, reconnect и URL rotation.
+- Bootstrap и resume на чистом Termux.
+- Lifecycle CLI (status/start/stop/logs) и установка как фонового процесса.
+- Более широкие integration/security tests, включая реальные OIDC claims и end-to-end тест в отдельной тестовой инфраструктуре.
 - Chunked transfer для больших payload.
-- Полный end-to-end тест на отдельной тестовой среде.
