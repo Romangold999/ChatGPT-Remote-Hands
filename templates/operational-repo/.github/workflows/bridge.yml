@@ -28,17 +28,15 @@ jobs:
         shell: bash
         env:
           BRIDGE_URL: ${{ vars.BRIDGE_TUNNEL_URL }}
-          OIDC_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          OIDC_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           set -euo pipefail
           case "$BRIDGE_URL" in
             https://*) ;;
             *) echo "BRIDGE_TUNNEL_URL must be an HTTPS URL" >&2; exit 1 ;;
           esac
-          token_url="${OIDC_REQUEST_URL}&audience=termux-bridge"
+          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=termux-bridge"
           oidc_token="$(curl --fail --silent --show-error \
-            -H "Authorization: bearer ${OIDC_REQUEST_TOKEN}" \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "$token_url" | jq -er '.value')"
           echo "::add-mask::${oidc_token}"
           echo "oidc_token=${oidc_token}" >> "$GITHUB_OUTPUT"
