@@ -14,9 +14,9 @@ GitHub Actions не получает и не передаёт shell-команд
 Termux:
 - проверяет OIDC JWT;
 - использует локальную авторизацию GitHub CLI через gh auth token;
-- читает mailbox/command.json по точному commit SHA;
+- читает push-bridge/command.json по точному commit SHA;
 - выполняет команду;
-- записывает mailbox/result.json и подтверждает command status через GitHub Contents API.
+- записывает push-bridge/result.json и подтверждает command status через GitHub Contents API.
 
 GitHub CLI credential не помещается в Bridge config, webhook, workflow output или logs. Он не передаётся в ChatGPT.
 
@@ -40,7 +40,7 @@ Bridge требует:
 - issuer https://token.actions.githubusercontent.com;
 - audience termux-push-bridge;
 - точный repository;
-- точный ref refs/heads/main;
+- точный ref refs/heads/push-bridge;
 - event_name=push;
 - exp, iat, nbf и jti;
 - подпись RS256 по GitHub JWKS.
@@ -50,8 +50,8 @@ Bridge требует:
 ## ChatGPT integration
 
 Сам GitHub connector может иметь только read permissions. Для работы нужен реальный канал, который может:
-- записать новую команду в mailbox/command.json;
-- прочитать mailbox/result.json;
+- записать новую команду в push-bridge/command.json;
+- прочитать push-bridge/result.json;
 - сверить ID и sequence перед отправкой следующей команды.
 
 Наличие read-only GitHub connector не означает, что ChatGPT может управлять Bridge.
