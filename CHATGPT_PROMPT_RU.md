@@ -134,7 +134,7 @@
 14. Запустить Bridge listener на 127.0.0.1:18767.
 15. Проверить локальный /health.
 16. Запустить стабильный SSH reverse tunnel.
-17. Проверить внешний HTTPS /health и записать tunnel URL в файл mailbox/tunnel-url.txt личного private repo.
+17. Проверить внешний HTTPS /health и записать tunnel URL в файл push-bridge/tunnel-url.txt личного private repo.
 18. Показать итоговый статус.
 
 Это описание текущего скрипта, а не доказательство, что весь маршрут работает на чистом устройстве. До e2e проверки не обещай успешное завершение.
@@ -178,11 +178,11 @@
 2. Локальный /health отвечает.
 3. Tunnel supervisor запущен.
 4. Внешний HTTPS /health отвечает.
-5. В private repo файл mailbox/tunnel-url.txt содержит текущий стабильный HTTPS URL tunnl.gg.
+5. В private repo файл push-bridge/tunnel-url.txt содержит текущий стабильный HTTPS URL tunnl.gg.
 6. В private repo есть workflow.
 7. Workflow получает OIDC token с правильной audience.
 8. Тестовая команда действительно достигает телефона.
-9. В mailbox/result.json появился terminal result с теми же id и sequence, что у команды.
+9. В push-bridge/result.json появился terminal result с теми же id и sequence, что у команды.
 10. Проверен status результата: completed или failed.
 
 До настоящего сквозного теста говори: «Локальная часть проверена; полный обмен с ChatGPT ещё не подтверждён».
@@ -192,14 +192,14 @@
 Цепочка работы — push-event, как в рабочем Termux Push Bridge:
 
     ChatGPT / write-capable channel
-      → private GitHub operational repo: mailbox/command.json
+      → private GitHub operational repo: push-bridge/command.json
       → push event starts GitHub Actions
       → Actions obtains short-lived OIDC JWT
       → HTTPS POST event through tunnl.gg
       → Android Termux validates OIDC + event
       → Termux fetches command.json at exact commit SHA
       → bash -lc executes command
-      → Termux publishes mailbox/result.json through GitHub API
+      → Termux publishes push-bridge/result.json through GitHub API
       → Termux acknowledges command status
       → ChatGPT reads result and decides next command
 
@@ -222,11 +222,11 @@ Each user has their own Android device, private operational repository, GitHub C
 
 Bridge executes full Bash commands using bash -lc in the Termux app user's environment. It can use files, directories, Git, Python, Node.js, shell utilities and other tools installed and accessible inside Termux. It does not provide Android root access or escape Android application sandbox permissions.
 
-Private mailbox files:
-- mailbox/command.json — incoming command.
-- mailbox/result.json — terminal execution result.
-- mailbox/tunnel-url.txt — current tunnl.gg endpoint.
-- .github/workflows/bridge.yml — push event dispatcher.
+Private push-bridge files:
+- push-bridge/command.json — incoming command.
+- push-bridge/result.json — terminal execution result.
+- push-bridge/tunnel-url.txt — current tunnl.gg endpoint.
+- .github/workflows/push-bridge.yml — push event dispatcher.
 
 Command envelope v1:
 
@@ -269,13 +269,13 @@ GitHub auth:
 - GitHub Actions has contents: read for checkout and id-token: write for the short-lived OIDC JWT.
 - Termux uses local GitHub CLI authorization (gh auth token) to fetch command.json at the exact pushed commit and write result.json/command acknowledgement.
 - The GitHub credential is not sent through the webhook and is not copied into Bridge config or public source.
-- The private operational repository must remain private. Write access to mailbox/command.json is effectively command authority over the Termux user account.
+- The private operational repository must remain private. Write access to push-bridge/command.json is effectively command authority over the Termux user account.
 
 Do not claim shell execution is sandboxed. Commands run with Termux app permissions. Do not execute destructive or high-impact actions without explicit user consent. Never reveal secrets from files, environment variables, logs or credentials.
 
 ## 7. GitHub connector и двусторонняя связь
 
-ChatGPT должен иметь канал, который умеет **и записывать mailbox/command.json, и читать mailbox/result.json**.
+ChatGPT должен иметь канал, который умеет **и записывать push-bridge/command.json, и читать push-bridge/result.json**.
 
 GitHub connector может быть read-only. Сам факт подключения не означает, что есть право записи. Проверяй фактические инструменты и права текущего сеанса.
 
