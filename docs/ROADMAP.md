@@ -27,8 +27,9 @@
 ## Этап 3 — OIDC и защищённый tunnel
 
 - [x] Валидировать GitHub OIDC signature, issuer, audience, repository, ref, timestamps и jti.
-- [ ] Проверить актуальные варианты tunnel provider и их бесплатные ограничения.
-- [ ] Реализовать регистрацию, reconnect и безопасную ротацию tunnel URL.
+- [x] Исследовать текущие варианты и выбрать Cloudflare Quick Tunnel для первого бесплатного сценария.
+- [x] Реализовать start/stop/status менеджер Quick Tunnel и публикацию/удаление Actions variable.
+- [ ] Добавить автоматическое восстановление tunnel после остановки Android и безопасную ротацию URL.
 - [ ] Проверить end-to-end обмен с реальным tunnel provider.
 
 **Критерий выхода:** listener принимает запросы только от workflow соответствующего private repo.
