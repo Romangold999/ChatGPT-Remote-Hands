@@ -28,7 +28,7 @@ chmod 700 "$APP_ROOT" "$STATE_DIR" "$CONFIG_DIR"
 
 say "Installing required Termux packages..."
 pkg update -y
-pkg install -y python git gh curl jq cloudflared
+pkg install -y python python-cryptography git gh curl jq cloudflared
 
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   [[ ! -e "$SOURCE_DIR" ]] || die "Source path exists but is not a Git checkout: $SOURCE_DIR"
@@ -39,9 +39,11 @@ else
 fi
 
 say "Preparing the isolated Python environment..."
-python -m venv "$VENV_DIR"
+python -m venv --system-site-packages "$VENV_DIR"
 "$VENV_DIR/bin/python" -m pip install --upgrade pip
 "$VENV_DIR/bin/python" -m pip install -e "$SOURCE_DIR"
+"$VENV_DIR/bin/python" -c 'import jwt, cryptography' \
+  || die "Termux Python cryptography module is unavailable; check the python-cryptography package."
 
 say "Checking GitHub authorization..."
 if ! gh auth status --hostname github.com >/dev/null 2>&1; then
