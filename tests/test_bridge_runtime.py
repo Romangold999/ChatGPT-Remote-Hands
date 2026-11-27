@@ -14,6 +14,7 @@ from unittest.mock import patch
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from android_remote_bridge.cli import show_logs, status
 from android_remote_bridge.oidc import (
     AuthenticationError,
     GitHubOIDCVerifier,
@@ -94,6 +95,20 @@ class OIDCTests(unittest.TestCase):
             with patch("android_remote_bridge.oidc.jwt.decode", return_value=claims):
                 with self.assertRaises(AuthenticationError):
                     verifier.verify("header.payload.signature")
+
+
+class LifecycleCLITests(unittest.TestCase):
+    def test_status_and_logs_without_running_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "config.json"
+            config.write_text(json.dumps({
+                "audience": "termux-bridge",
+                "repository": "owner/private-repo",
+                "ref": "refs/heads/main",
+                "state_file": str(Path(tmp) / "state" / "replay.json"),
+            }), encoding="utf-8")
+            self.assertEqual(status(config), {"running": False, "pid": None})
+            self.assertIn("No Bridge log", show_logs(config))
 
 
 class TunnelTests(unittest.TestCase):
