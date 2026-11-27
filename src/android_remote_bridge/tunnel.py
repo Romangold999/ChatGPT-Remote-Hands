@@ -119,6 +119,7 @@ def start(config_path: Path) -> str:
     url = None
     while time.monotonic() < deadline:
         if process.poll() is not None:
+            pid_file.unlink(missing_ok=True)
             raise TunnelError("cloudflared exited before creating a tunnel; inspect local tunnel log")
         try:
             log_text = log_file.read_text(encoding="utf-8", errors="replace")
@@ -149,8 +150,21 @@ def start(config_path: Path) -> str:
             os.killpg(process.pid, signal.SIGTERM)
         except OSError:
             pass
+        pid_file.unlink(missing_ok=True)
+        url_file.unlink(missing_ok=True)
         raise
     return url
+
+
+def _delete_published_url(repository: str) -> None:
+    if not shutil.which("gh"):
+        return
+    subprocess.run(
+        ["gh", "variable", "delete", "BRIDGE_TUNNEL_URL", "--repo", repository],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
 
 
 def stop(config_path: Path) -> bool:
@@ -160,6 +174,7 @@ def stop(config_path: Path) -> bool:
     if pid is None:
         pid_file.unlink(missing_ok=True)
         url_file.unlink(missing_ok=True)
+        _delete_published_url(config["repository"])
         return False
     try:
         os.killpg(pid, signal.SIGTERM)
@@ -167,6 +182,7 @@ def stop(config_path: Path) -> bool:
         raise TunnelError("could not stop the recorded cloudflared process") from exc
     pid_file.unlink(missing_ok=True)
     url_file.unlink(missing_ok=True)
+    _delete_published_url(config["repository"])
     return True
 
 
