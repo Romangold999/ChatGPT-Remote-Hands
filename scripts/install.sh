@@ -166,8 +166,6 @@ if [[ ! -f "$STATE_DIR/tunnl-key-registered" ]]; then
   "$VENV_DIR/bin/android-remote-bridge-tunnel" register --config "$CONFIG_FILE"
   printf 'Press Enter after completing the tunnl.gg registration in your browser: ' > /dev/tty
   IFS= read -r _ < /dev/tty
-  printf 'registered\n' > "$STATE_DIR/tunnl-key-registered"
-  chmod 600 "$STATE_DIR/tunnl-key-registered"
 fi
 
 say "Starting your local Bridge listener..."
@@ -177,6 +175,14 @@ curl --fail --silent http://127.0.0.1:18767/health | jq -e '.status == "ok"' >/d
 
 say "Starting your stable tunnl.gg SSH tunnel and updating your private repo..."
 TUNNEL_URL="$("$VENV_DIR/bin/android-remote-bridge-tunnel" start --config "$CONFIG_FILE")"
+
+# Mark the SSH key as registered only after a stable tunnel has actually
+# started and passed its external health check. This makes interrupted
+# registrations safely resumable.
+if [[ ! -f "$STATE_DIR/tunnl-key-registered" ]]; then
+  printf 'registered\n' > "$STATE_DIR/tunnl-key-registered"
+  chmod 600 "$STATE_DIR/tunnl-key-registered"
+fi
 
 say "Installation completed."
 printf '\nPrivate repository: %s\n' "$FULL_REPO"
