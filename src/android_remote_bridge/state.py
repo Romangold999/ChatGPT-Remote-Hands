@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,28 @@ class ReplayState:
                 "last_command_hash": None,
                 "last_result": None,
             })
+        self._recover_interrupted()
+
+    def _recover_interrupted(self) -> None:
+        """Record an interrupted command after a process restart; never rerun it."""
+        with self._lock:
+            data = self._read()
+            if data["last_sequence"] < 1 or not data.get("last_command_id") or data.get("last_result") is not None:
+                return
+            finished = datetime.now(timezone.utc).isoformat()
+            data["last_result"] = {
+                "version": 1,
+                "id": data["last_command_id"],
+                "sequence": data["last_sequence"],
+                "status": "interrupted",
+                "started_at": None,
+                "finished_at": finished,
+                "exit_code": 125,
+                "stdout": "",
+                "stderr": "",
+                "error": "Bridge restarted while the command was running; the command was NOT rerun.",
+            }
+            self._write(data)
 
     def _read(self) -> dict[str, Any]:
         try:
