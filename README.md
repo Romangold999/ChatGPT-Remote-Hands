@@ -12,7 +12,7 @@
   <img alt="Status" src="https://img.shields.io/badge/status-development-orange">
 </p>
 
-> **Текущий статус:** реализованы локальный Bridge runtime, OIDC/replay protection, allowlist executor, lifecycle CLI, шаблон приватного operational repo и Cloudflare Quick Tunnel manager. Добавлен первый Termux ARM64 bootstrap. CI проходит, но установщик ещё не проверен на чистом Android end-to-end; это экспериментальная сборка, не production release.
+> **Текущий статус:** реализованы локальный Bridge runtime, OIDC/replay protection, allowlist executor, lifecycle CLI, шаблон приватного operational repo и tunnl.gg SSH reverse-tunnel supervisor. Добавлен первый Termux ARM64 bootstrap. CI проходит, но установщик ещё не проверен на чистом Android end-to-end; это экспериментальная сборка, не production release.
 
 ## Что это
 
@@ -60,7 +60,7 @@ Android Remote Bridge — открытый проект для создания 
 - персональных tunnel URL, адресов локальных служб и приватных endpoint;
 - пользовательских логов, mailbox, результатов команд и дампов устройств.
 
-Локальные секреты, если они понадобятся выбранному provider, создаются на устройстве пользователя и не покидают его. Первый provider — Cloudflare Quick Tunnel, он не требует SSH private key. В приватный GitHub-репозиторий попадают только необходимые несекретные файлы. GitHub Actions получает короткоживущий OIDC-токен во время запуска workflow — он не сохраняется как постоянный секрет.
+Локальные секреты, если они понадобятся выбранному provider, создаются на устройстве пользователя и не покидают его. Первый provider — tunnl.gg через OpenSSH; для stable URL используется отдельный зарегистрированный Ed25519-ключ. В приватный GitHub-репозиторий попадают только необходимые несекретные файлы. GitHub Actions получает короткоживущий OIDC-токен во время запуска workflow — он не сохраняется как постоянный секрет.
 
 Подробности: [Модель безопасности](SECURITY.md).
 
@@ -98,11 +98,11 @@ Termux и все его плагины должны быть установле�
 Первый экспериментальный сценарий запускается одной командой из Termux. Скрипт устанавливает зависимости, авторизует GitHub CLI, создаёт личный private repo, запускает Bridge и Quick Tunnel. Полный end-to-end тест команды и результата ещё предстоит добавить:
 
 1. Проверить native Termux и архитектуру ARM64.
-2. Установить Python, Termux-native cryptography, Git, GitHub CLI, curl, jq и cloudflared.
+2. Установить Python, Termux-native cryptography, Git, GitHub CLI, curl, jq и openssh.
 3. Провести пользователя через GitHub CLI browser authorization.
 4. Создать **новый приватный репозиторий именно этого пользователя**, проверить владельца и private visibility, загрузить чистый operational template.
 5. Создать локальную конфигурацию и persistent replay state.
-6. Запустить локальный Bridge и Cloudflare Quick Tunnel; обновить Actions variable.
+6. Запустить локальный Bridge и tunnl.gg stable SSH reverse tunnel; обновить Actions variable.
 7. Полный тест команды и проверки result mailbox — следующий этап.
 8. Termux:Boot не включается автоматически.
 
@@ -135,7 +135,7 @@ Termux и все его плагины должны быть установле�
 | `.github/workflows/ci.yml` | Автоматический запуск unit-тестов при push и pull request |
 | `.gitignore` | Исключения локальных секретов и runtime-файлов |
 
-Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state с кэшированием результата, три встроенные операции без shell, шаблон workflow для приватного operational repo и менеджер Cloudflare Quick Tunnel. Добавлен первый ARM64 Termux bootstrap `scripts/install.sh`; его нужно ещё проверить на чистом Android/Termux и пройти полный end-to-end сценарий.
+Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state с кэшированием результата, три встроенные операции без shell, шаблон workflow для приватного operational repo и менеджер tunnl.gg stable SSH reverse tunnel. Добавлен первый ARM64 Termux bootstrap `scripts/install.sh`; его нужно ещё проверить на чистом Android/Termux и пройти полный end-to-end сценарий.
 
 ## Принципы проекта
 
@@ -153,7 +153,7 @@ Termux и все его плагины должны быть установле�
 - GitHub connector в ChatGPT может не поддерживать запись. Нужен подтверждённый write-capable канал.
 - HTTP 202 означает, что webhook принят, но не то, что команда выполнена.
 - Успешный GitHub Actions run не доказывает выполнение на телефоне: нужно проверить result mailbox.
-- Cloudflare Quick Tunnel не требует аккаунта или домена, но выдаёт временный случайный URL, не гарантирует uptime и ограничивает одновременные запросы.
+- tunnl.gg stable SSH reverse tunnel не требует аккаунта или домена, но выдаёт временный случайный URL, не гарантирует uptime и ограничивает одновременные запросы.
 - Android может останавливать фоновые процессы. Работа 24/7 не гарантируется.
 - GitHub authorization может быть отозвана и потребовать повторного входа.
 - Termux:API и Termux:Boot — отдельные приложения-плагины; `pkg install` не устанавливает их APK.
