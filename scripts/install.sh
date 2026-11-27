@@ -28,7 +28,7 @@ chmod 700 "$APP_ROOT" "$STATE_DIR" "$CONFIG_DIR"
 
 say "Installing required Termux packages..."
 pkg update -y
-pkg install -y python python-pip python-ensurepip-wheels python-cryptography git gh curl jq cloudflared
+pkg install -y python python-pip python-ensurepip-wheels python-cryptography git gh curl jq openssh
 
 if [[ ! -d "$SOURCE_DIR/.git" ]]; then
   [[ ! -e "$SOURCE_DIR" ]] || die "Source path exists but is not a Git checkout: $SOURCE_DIR"
@@ -118,6 +118,8 @@ data = {
     "repository": sys.argv[2],
     "ref": "refs/heads/main",
     "state_file": sys.argv[3],
+    "tunnel_key": str(Path.home() / ".ssh" / "android-remote-bridge_ed25519"),
+    "known_hosts": str(Path.home() / ".ssh" / "known_hosts_android_remote_bridge"),
 }
 temporary = target.with_suffix(".tmp")
 temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -128,20 +130,63 @@ fi
 
 REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
 REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
-[[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] \
-  || die "The operational repository owner or visibility check failed."
+[[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] || die "The operational repository owner or visibility check failed."
+
+say "Preparing your personal tunnl.gg SSH identity..."
+SSH_DIR="$HOME/.ssh"
+mkdir -p "$SSH_DIR"
+chmod 700 "$SSH_DIR"
+if [[ -f "$HOME/.ssh/termux-push-bridge_ed25519" && -f "$HOME/.config/termux-push-bridge/known_hosts" ]]; then
+  TUNNEL_KEY="$HOME/.ssh/termux-push-bridge_ed25519"
+  KNOWN_HOSTS="$HOME/.config/termux-push-bridge/known_hosts"
+  REUSE_TUNNL_KEY=1
+  say "Found your existing registered tunnl.gg key; reusing its path without reading or copying the private key."
+else
+  TUNNEL_KEY="$SSH_DIR/android-remote-bridge_ed25519"
+  KNOWN_HOSTS="$SSH_DIR/known_hosts_android_remote_bridge"
+  REUSE_TUNNL_KEY=0
+  if [[ ! -f "$TUNNEL_KEY" ]]; then
+    ssh-keygen -q -t ed25519 -N "" -C "android-remote-bridge@$OWNER" -f "$TUNNEL_KEY"
+    chmod 600 "$TUNNEL_KEY"
+    chmod 644 "$TUNNEL_KEY.pub"
+  fi
+fi
+"$VENV_DIR/bin/python" - "$CONFIG_FILE" "$TUNNEL_KEY" "$KNOWN_HOSTS" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+target = Path(sys.argv[1])
+data = json.loads(target.read_text(encoding="utf-8"))
+data["tunnel_key"] = sys.argv[2]
+data["known_hosts"] = sys.argv[3]
+temporary = target.with_suffix(".tmp")
+temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+os.chmod(temporary, 0o600)
+temporary.replace(target)
+PY
+
+if [[ "$REUSE_TUNNL_KEY" == "0" && ! -f "$STATE_DIR/tunnl-key-registered" ]]; then
+  say "One-time tunnl.gg key registration is required for a stable URL."
+  say "A browser link will appear in the SSH session. Open it, finish the free account/key registration, then return here."
+  "$VENV_DIR/bin/android-remote-bridge-tunnel" register --config "$CONFIG_FILE"
+  printf 'Press Enter after completing the tunnl.gg registration in your browser: ' > /dev/tty
+  IFS= read -r _ < /dev/tty
+  printf 'registered\n' > "$STATE_DIR/tunnl-key-registered"
+  chmod 600 "$STATE_DIR/tunnl-key-registered"
+fi
 
 say "Starting your local Bridge listener..."
 "$VENV_DIR/bin/android-remote-bridge" start --config "$CONFIG_FILE"
 curl --fail --silent http://127.0.0.1:18766/health | jq -e '.status == "ok"' >/dev/null \
   || die "Local Bridge did not become healthy. Check $STATE_DIR/bridge.log"
 
-say "Starting the personal Cloudflare Quick Tunnel and updating your private repo..."
+say "Starting your stable tunnl.gg SSH tunnel and updating your private repo..."
 TUNNEL_URL="$("$VENV_DIR/bin/android-remote-bridge-tunnel" start --config "$CONFIG_FILE")"
 
 say "Installation completed."
 printf '\nPrivate repository: %s\n' "$FULL_REPO"
 printf 'Tunnel URL: %s\n' "$TUNNEL_URL"
 printf '\nThe Bridge and tunnel are running in the background while Android allows them to run.\n'
-printf 'Quick Tunnel URLs change after a restart; run the tunnel start command again to publish the new URL.\n'
+printf 'The same registered SSH key keeps the same stable URL after reconnects. Free tunnl.gg sessions still have service-side time limits.\n'
 printf 'Termux:Boot is not enabled automatically.\n'
