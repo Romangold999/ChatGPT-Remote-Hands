@@ -153,7 +153,7 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
     _pid_file, log_file, url_file, key_file, known_hosts = _paths(config)
     _prepare_known_hosts(known_hosts)
     command = _ssh_base(key_file, known_hosts) + [
-        "-n", "-T", "-R", "80:127.0.0.1:18766",
+        "-n", "-T", "-R", f"80:127.0.0.1:{config.get('port', 18767)}",
         "stable@" + HOST, "output=json",
     ]
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -260,8 +260,9 @@ def start(config_path: Path) -> str:
     repository = config["repository"] if (config := load_config(config_path)) else ""
     if not _REPOSITORY_PATTERN.fullmatch(repository):
         raise TunnelError("config repository must be OWNER/PRIVATE_REPOSITORY")
-    if not _health_ok("http://127.0.0.1:18766"):
-        raise TunnelError("local Bridge is not healthy on 127.0.0.1:18766")
+    local_port = config["port"]
+    if not _health_ok(f"http://127.0.0.1:{local_port}"):
+        raise TunnelError(f"local Bridge is not healthy on 127.0.0.1:{local_port}")
     pid_file, log_file, url_file, key_file, known_hosts = _paths(config)
     _prepare_known_hosts(known_hosts)
     if not key_file.is_file():
