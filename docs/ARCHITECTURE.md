@@ -1,6 +1,6 @@
 # Архитектура ChatGPT Remote Hands
 
-## Поток данных — push, без polling
+## Поток данных — push events
 
 1. ChatGPT или write-capable канал записывает push-bridge/command.json со статусом ready в приватный operational repository.
 2. Push по push-bridge/command.json запускает GitHub Actions.
@@ -12,7 +12,7 @@
 8. Termux записывает result.json и подтверждает статус command.json через GitHub Contents API.
 9. ChatGPT читает result.json, сверяет ID/sequence/status и решает, нужна ли следующая команда.
 
-**Termux не опрашивает GitHub за командами.** Новая команда приходит только по push event. HTTP 202 означает принятие события, а не завершение shell execution. Туннельный health ping не является polling mailbox.
+Новая команда поступает только по push event. HTTP 202 означает принятие события, а не завершение shell execution. Туннельный health ping поддерживает доступность соединения.
 
 ## Компоненты
 
