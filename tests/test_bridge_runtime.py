@@ -23,7 +23,7 @@ from android_remote_bridge.oidc import (
 from android_remote_bridge.protocol import parse_command
 from android_remote_bridge.server import BridgeHandler
 from android_remote_bridge.state import ReplayState, StateError
-from android_remote_bridge.tunnel import _URL_PATTERN
+from android_remote_bridge.tunnel import _URL_PATTERN, _tunnel_event
 
 COMMAND_ID = "123e4567-e89b-12d3-a456-426614174000"
 
@@ -128,10 +128,20 @@ class LifecycleCLITests(unittest.TestCase):
 
 
 class TunnelTests(unittest.TestCase):
-    def test_quick_tunnel_url_parser(self) -> None:
-        match = _URL_PATTERN.search("INF | https://blue-river-123.trycloudflare.com")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group(0), "https://blue-river-123.trycloudflare.com")
+    def test_stable_tunnl_url_pattern(self) -> None:
+        url = "https://brave-fox-7c41e09b.tunnl.gg"
+        self.assertIsNotNone(_URL_PATTERN.fullmatch(url))
+        self.assertIsNone(_URL_PATTERN.fullmatch("https://blue-river.trycloudflare.com"))
+
+    def test_machine_readable_tunnel_event(self) -> None:
+        url = "https://brave-fox-7c41e09b.tunnl.gg"
+        self.assertEqual(
+            _tunnel_event(json.dumps({"event": "tunnel", "url": url})),
+            url,
+        )
+        self.assertIsNone(
+            _tunnel_event(json.dumps({"event": "request", "url": url}))
+        )
 
 
 class ListenerTests(unittest.TestCase):
