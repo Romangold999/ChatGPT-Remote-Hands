@@ -2,10 +2,10 @@
 
 ## Выбранная схема
 
-Используется tunnl.gg — reverse tunnel поверх обычного OpenSSH. На Android не нужен отдельный агент: телефон сам открывает исходящее SSH-соединение к proxy.tunnl.gg, а сервис выдаёт публичный HTTPS-адрес и передаёт запросы на локальный listener 127.0.0.1:18766.
+Используется tunnl.gg — reverse tunnel поверх обычного OpenSSH. На Android не нужен отдельный агент: телефон сам открывает исходящее SSH-соединение к proxy.tunnl.gg, а сервис выдаёт публичный HTTPS-адрес и передаёт запросы на локальный listener 127.0.0.1:18767.
 
 Это та же схема, что используется в рабочем Termux Push Bridge:
-- SSH reverse forwarding: -R 80:127.0.0.1:18766;
+- SSH reverse forwarding: -R 80:127.0.0.1:18767;
 - стабильный адрес: stable@proxy.tunnl.gg;
 - отдельный Ed25519 key на устройство/установку;
 - автоматическое переподключение после обрыва;
@@ -16,7 +16,7 @@
 
 ## Команда подключения
 
-ssh -n -T -i ~/.ssh/android-remote-bridge_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_android_remote_bridge -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -R 80:127.0.0.1:18766 stable@proxy.tunnl.gg output=json
+ssh -n -T -i ~/.ssh/android-remote-bridge_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_android_remote_bridge -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -R 80:127.0.0.1:18767 stable@proxy.tunnl.gg output=json
 
 В JSON-режиме первая строка — событие tunnel с полем url. Runtime проверяет внешний /health, затем записывает URL в Actions variable личного private repo. Supervisor повторно подключается через 5 секунд после обрыва. При использовании того же зарегистрированного ключа stable URL сохраняется.
 
@@ -53,7 +53,7 @@ Android может остановить фоновые процессы; неп�
 ## Безопасность и приватность
 
 - Публичный URL не является паролем.
-- Listener слушает только 127.0.0.1:18766.
+- Listener слушает только 127.0.0.1:18767.
 - Каждый webhook проверяет краткоживущий GitHub Actions OIDC JWT и точные claims repository/ref.
 - Внешний GET /health возвращает только {"status":"ok"}.
 - SSH private key и локальная конфигурация не попадают в operational repo или публичный проект.
