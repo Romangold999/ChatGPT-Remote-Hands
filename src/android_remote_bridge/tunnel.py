@@ -88,15 +88,18 @@ def start(config_path: Path) -> str:
 
     pid_file, log_file, url_file = _state_paths(config)
     old_pid = _pid_is_our_cloudflared(pid_file)
-    if old_pid is not None and url_file.exists():
-        old_url = url_file.read_text(encoding="utf-8").strip()
-        if _health_ok(old_url):
-            _publish_url(repository, old_url)
-            return old_url
+    if old_pid is not None:
+        if url_file.exists():
+            old_url = url_file.read_text(encoding="utf-8").strip()
+            if _health_ok(old_url):
+                _publish_url(repository, old_url)
+                return old_url
         try:
             os.killpg(old_pid, signal.SIGTERM)
         except OSError:
             pass
+    pid_file.unlink(missing_ok=True)
+    url_file.unlink(missing_ok=True)
 
     with log_file.open("ab", buffering=0) as log_stream:
         process = subprocess.Popen(
@@ -134,6 +137,7 @@ def start(config_path: Path) -> str:
             os.killpg(process.pid, signal.SIGTERM)
         except OSError:
             pass
+        pid_file.unlink(missing_ok=True)
         raise TunnelError("timed out waiting for a healthy Cloudflare Quick Tunnel")
 
     try:
@@ -171,7 +175,7 @@ def status(config_path: Path) -> dict[str, Any]:
     pid_file, _log_file, url_file = _state_paths(config)
     pid = _pid_is_our_cloudflared(pid_file)
     url = url_file.read_text(encoding="utf-8").strip() if url_file.exists() else None
-    return {"running": pid is not None, "pid": pid, "url": url}
+    return {"running": pid is not None, "pid": pid, "url": url if pid is not None else None}
 
 
 def main() -> None:
