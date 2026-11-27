@@ -70,5 +70,5 @@ ChatGPT-Remote-Hands/
 - Не использовать рабочий private operational repo автора как общий backend.
 - Не переиспользовать SSH private key между установками.
 - Изменения protocol/server/executor должны сопровождаться тестами и обновлением docs/COMMAND_PROTOCOL.md.
-- Bridge работает по push-событиям; не добавлять polling loop для получения команд.
+- Bridge получает команды по push-событиям GitHub Actions.
 - Shell выполняется в пределах прав Termux app user; write access к private mailbox фактически даёт command authority.
