@@ -76,8 +76,8 @@ class ReplayState:
                 self._write(data)
                 return cached
 
-            if sequence != data["last_sequence"] + 1:
-                raise StateError("command sequence is not the next expected value")
+            if sequence <= data["last_sequence"]:
+                raise StateError("command sequence is not newer than the last completed command")
 
             seen.append(jti)
             data["seen_jti"] = seen[-10_000:]
