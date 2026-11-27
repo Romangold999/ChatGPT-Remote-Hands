@@ -31,7 +31,7 @@ Termux и все plugin APK должны быть из одного источн
 9. Поднимает стабильный tunnl.gg reverse tunnel через OpenSSH, проверяет внешний `/health` и публикует URL в Actions variable `BRIDGE_TUNNEL_URL`.
 10. Создаёт отдельный локальный Ed25519-ключ, проводит однократную регистрацию stable URL и не включает Termux:Boot.
 
-## Секреты и конфигурация
+## Permissions GitHub Actions\n\nТекущий workflow использует `contents: write` и `id-token: write`. Запись необходима, потому что сам workflow публикует `mailbox/result.json` обратно в приватный operational repository. `id-token: write` нужен для получения краткоживущего GitHub Actions OIDC JWT. Не описывай текущую схему как `contents: read`: это сломает публикацию результата.\n\n## Секреты и конфигурация
 
 - Публичный репозиторий никогда не получает пользовательские секреты.
 - Private operational repository содержит только workflow и mailbox.
