@@ -69,7 +69,7 @@ def _publish_url(repository: str, url: str) -> None:
         capture_output=True, text=True, check=False,
     )
     if lookup.returncode != 0 or not lookup.stdout.strip():
-        raise TunnelError("could not read mailbox/tunnel-url.txt in the private repository")
+        raise TunnelError("could not read push-bridge/tunnel-url.txt in the private repository")
     try:
         current = json.loads(lookup.stdout)
         current_url = base64.b64decode(current.get("content", "")).decode("utf-8").strip()
@@ -92,7 +92,7 @@ def _publish_url(repository: str, url: str) -> None:
         check=False,
     )
     if result.returncode:
-        raise TunnelError("could not publish stable URL to mailbox/tunnel-url.txt")
+        raise TunnelError("could not publish stable URL to push-bridge/tunnel-url.txt")
 
 
 def _delete_published_url(repository: str) -> None:
