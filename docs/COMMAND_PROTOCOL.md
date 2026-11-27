@@ -2,7 +2,7 @@
 
 ## Принцип работы
 
-Bridge работает по push-событиям. Termux НЕ опрашивает GitHub и не запрашивает новые команды по таймеру.
+Bridge получает команды по push-событиям GitHub Actions.
 
 1. GPT записывает push-bridge/command.json со статусом ready в личный private operational repository.
 2. Push в ветке push-bridge по пути push-bridge/command.json запускает GitHub Actions.
@@ -90,4 +90,4 @@ Actions нужен только contents: read для checkout private repo и i
 - не помещай команды с секретами в публичные issue/PR;
 - не запускай опасные или разрушающие действия без отдельного согласия пользователя.
 
-Listener слушает только 127.0.0.1:18767. Внешний доступ идёт через tunnl.gg reverse SSH tunnel. Никакого polling GitHub со стороны Termux нет.
+Listener слушает только 127.0.0.1:18767. Внешний доступ идёт через tunnl.gg reverse SSH tunnel.
