@@ -199,15 +199,32 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
             stop_event["wake"].clear()
 
 
+def _keepalive_loop(config: dict[str, Any], shutdown: Any) -> None:
+    _pid, log_file, url_file, _key, _known = _paths(config)
+    while not shutdown.wait(55 * 60):
+        if not url_file.exists():
+            continue
+        url = url_file.read_text(encoding="utf-8").strip()
+        if url and not _health_ok(url):
+            with log_file.open("a", encoding="utf-8") as log:
+                log.write("[tunnl.gg] keepalive health request failed; SSH reconnect loop remains active\\n")
+
+
 def _worker(config_path: Path) -> None:
     config = load_config(config_path)
     import threading
 
-    stop_event: dict[str, Any] = {"stop": False, "child": None, "wake": threading.Event()}
+    stop_event: dict[str, Any] = {
+        "stop": False,
+        "child": None,
+        "wake": threading.Event(),
+        "shutdown": threading.Event(),
+    }
 
     def request_stop(_signum: int, _frame: Any) -> None:
         stop_event["stop"] = True
         stop_event["wake"].set()
+        stop_event["shutdown"].set()
         child = stop_event.get("child")
         if child is not None:
             try:
@@ -217,6 +234,10 @@ def _worker(config_path: Path) -> None:
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
+    keepalive = threading.Thread(
+        target=_keepalive_loop, args=(config, stop_event["shutdown"]), daemon=True
+    )
+    keepalive.start()
     _run_loop(config, stop_event)
 
 
