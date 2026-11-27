@@ -10,7 +10,7 @@
 - отдельный Ed25519-ключ для каждой установки;
 - pinned SSH host key;
 - reconnect после обрыва;
-- URL сохраняется в mailbox/tunnel-url.txt приватного operational repo.
+- URL сохраняется в push-bridge/tunnel-url.txt приватного operational repo.
 
 Туннель не опрашивает GitHub. Входящий запрос появляется только после push-события GitHub Actions. Отдельный health ping к собственному /health раз в 55 минут — это keepalive туннеля, а не проверка наличия новых команд.
 
@@ -33,7 +33,7 @@ ssh -n -T -i ~/.ssh/android-remote-bridge_ed25519 \
   -R 80:127.0.0.1:18767 stable@proxy.tunnl.gg output=json
 ~~~
 
-После события tunnel с URL runtime проверяет внешний /health, затем обновляет mailbox/tunnel-url.txt через локальную GitHub CLI авторизацию. Изменение tunnel URL не запускает workflow команд, потому что workflow фильтрует только mailbox/command.json.
+После события tunnel с URL runtime проверяет внешний /health, затем обновляет push-bridge/tunnel-url.txt через локальную GitHub CLI авторизацию. Изменение tunnel URL не запускает workflow команд, потому что workflow фильтрует только push-bridge/command.json.
 
 ## Однократная регистрация ключа
 
