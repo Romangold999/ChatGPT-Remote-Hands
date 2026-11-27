@@ -23,7 +23,19 @@ jobs:
       - name: Check out operational mailbox
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Check whether a command is pending
+        id: command
+        shell: bash
+        run: |
+          if jq -e '.status == "pending"' mailbox/command.json >/dev/null; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            echo "No pending command; this run will do nothing."
+          fi
+
       - name: Validate endpoint and obtain short-lived OIDC token
+        if: steps.command.outputs.pending == 'true'
         id: auth
         shell: bash
         env:
@@ -42,6 +54,7 @@ jobs:
           echo "oidc_token=${oidc_token}" >> "$GITHUB_OUTPUT"
 
       - name: Send command to this user's Android Bridge
+        if: steps.command.outputs.pending == 'true'
         shell: bash
         env:
           BRIDGE_URL: ${{ vars.BRIDGE_TUNNEL_URL }}
@@ -70,6 +83,7 @@ jobs:
           jq '.result' /tmp/bridge-response.json > mailbox/result.json
 
       - name: Publish result to this user's private mailbox
+        if: steps.command.outputs.pending == 'true'
         shell: bash
         run: |
           set -euo pipefail
