@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
@@ -60,11 +61,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
         try:
             claims = self.server.verifier.verify(auth[7:].strip())  # type: ignore[attr-defined]
-            command = parse_command(self.rfile.read(length))
+            raw_command = self.rfile.read(length)
+            command = parse_command(raw_command)
+            command_hash = hashlib.sha256(raw_command).hexdigest()
             cached = self.server.replay_state.accept(  # type: ignore[attr-defined]
                 sequence=command.sequence,
                 jti=claims["jti"],
                 command_id=command.command_id,
+                command_hash=command_hash,
             )
             if cached is not None:
                 self._reply(200, {"accepted": True, "result": cached, "replayed": True})
