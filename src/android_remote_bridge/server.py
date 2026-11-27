@@ -60,12 +60,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
         try:
             claims = self.server.verifier.verify(auth[7:].strip())  # type: ignore[attr-defined]
             command = parse_command(self.rfile.read(length))
-            self.server.replay_state.accept(  # type: ignore[attr-defined]
-                sequence=command.sequence, jti=claims["jti"]
+            cached = self.server.replay_state.accept(  # type: ignore[attr-defined]
+                sequence=command.sequence,
+                jti=claims["jti"],
+                command_id=command.command_id,
             )
+            if cached is not None:
+                self._reply(200, {"accepted": True, "result": cached, "replayed": True})
+                return
             result = execute(command)
+            self.server.replay_state.complete(  # type: ignore[attr-defined]
+                sequence=command.sequence,
+                command_id=command.command_id,
+                result=result,
+            )
             self.server.last_result = result  # type: ignore[attr-defined]
-            self._reply(200, {"accepted": True, "result": result})
+            self._reply(200, {"accepted": True, "result": result, "replayed": False})
         except AuthenticationError:
             self._reply(401, {"error": "authentication_failed"})
         except (ProtocolError, StateError):
