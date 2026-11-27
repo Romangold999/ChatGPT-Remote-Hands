@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local development and runtime state
+.env
+.env.*
+!.env.example
+*.local.json
+*.local.yaml
+*.local.yml
+.runtime/
+state/
+logs/
+*.log
+*.pid
+*.sock
+
+# Keys, credentials and tunnel state
+*.pem
+*.key
+*.pub
+id_ed25519*
+id_rsa*
+known_hosts
+credentials.json
+config.local.json
+tunnel-url.txt
+command.json
+result.json
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
