@@ -218,6 +218,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         acquired = False
         try:
             event = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(event, dict):
+                self._reply(400, {"error": "event_must_be_object"})
+                return
             config = self.server.bridge_config  # type: ignore[attr-defined]
             if event.get("repository") != config["repository"] or event.get("ref") != config["ref"]:
                 self._reply(403, {"error": "wrong_repository_or_ref"})
