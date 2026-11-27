@@ -56,8 +56,13 @@ jobs:
             -H "Content-Type: application/json" \
             --data-binary @mailbox/command.json \
             --output /tmp/bridge-response.json
-          jq -e '.accepted == true and (.result | type == "object")' \
-            /tmp/bridge-response.json >/dev/null
+          jq -e --slurpfile command mailbox/command.json '
+            .accepted == true
+            and (.result | type == "object")
+            and .result.id == $command[0].id
+            and .result.sequence == $command[0].sequence
+            and (.result.status == "completed" or .result.status == "failed")
+          ' /tmp/bridge-response.json >/dev/null
           jq '.result' /tmp/bridge-response.json > mailbox/result.json
 
       - name: Publish result to this user's private mailbox
