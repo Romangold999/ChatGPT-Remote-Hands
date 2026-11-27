@@ -4,22 +4,22 @@
 
 Bridge работает по push-событиям. Termux НЕ опрашивает GitHub и не запрашивает новые команды по таймеру.
 
-1. GPT записывает mailbox/command.json со статусом ready в личный private operational repository.
-2. Push в main по пути mailbox/command.json запускает GitHub Actions.
+1. GPT записывает push-bridge/command.json со статусом ready в личный private operational repository.
+2. Push в main по пути push-bridge/command.json запускает GitHub Actions.
 3. Workflow checkout-ит точный commit SHA, получает короткоживущий GitHub Actions OIDC JWT с audience termux-push-bridge и отправляет на туннель только событие: repository, ref, after (SHA коммита), timestamp.
 4. Termux проверяет JWT и событие, затем сам один раз получает command.json из GitHub по точному SHA события.
 5. Termux выполняет bash -lc с командой в домашнем каталоге Termux с заданным timeout.
-6. Termux публикует mailbox/result.json через GitHub Contents API и меняет статус команды с ready на конечный статус.
+6. Termux публикует push-bridge/result.json через GitHub Contents API и меняет статус команды с ready на конечный статус.
 7. GPT читает result.json, проверяет id и sequence, анализирует stdout/stderr/exit code и при необходимости отправляет следующую команду новым push-событием.
 
 Webhook отвечает 202 Accepted сразу после постановки команды в локальный worker. Это означает только принятие события, а не завершение команды. GitHub Actions не ждёт shell-команду и не публикует результат вместо Termux.
 
 ## Файлы приватного operational repository
 
-- mailbox/command.json — входящая команда и её статус.
-- mailbox/result.json — результат последней команды.
-- mailbox/tunnel-url.txt — текущий стабильный HTTPS endpoint tunnl.gg.
-- .github/workflows/bridge.yml — push-triggered event dispatcher.
+- push-bridge/command.json — входящая команда и её статус.
+- push-bridge/result.json — результат последней команды.
+- push-bridge/tunnel-url.txt — текущий стабильный HTTPS endpoint tunnl.gg.
+- .github/workflows/push-bridge.yml — push-triggered event dispatcher.
 
 ## Формат команды v1
 
@@ -83,7 +83,7 @@ Actions нужен только contents: read для checkout private repo и i
 
 ## Граница доверия
 
-Полноценный shell — это реальное выполнение команд от имени пользователя Termux. Любой, кто может записать mailbox/command.json в private operational repo, получает возможность запускать команды на устройстве. Поэтому:
+Полноценный shell — это реальное выполнение команд от имени пользователя Termux. Любой, кто может записать push-bridge/command.json в private operational repo, получает возможность запускать команды на устройстве. Поэтому:
 - operational repo обязан быть private;
 - доступ на запись выдавай только доверенному пользователю/интеграции;
 - не публикуй tunnel URL как секрет — безопасность обеспечивает OIDC;
