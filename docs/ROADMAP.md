@@ -28,7 +28,7 @@
 
 - [x] Валидировать GitHub OIDC signature, issuer, audience, repository, ref, timestamps и jti.
 - [x] Исследовать tunnl.gg и реализовать stable SSH reverse tunnel для первого бесплатного сценария.
-- [x] Реализовать start/stop/status менеджер Quick Tunnel и публикацию/удаление Actions variable.
+- [x] Реализовать start/stop/status supervisor tunnl.gg, stable URL, reconnect и публикацию Actions variable.
 - [ ] Добавить автоматическое восстановление tunnel после остановки Android и безопасную ротацию URL.
 - [ ] Проверить end-to-end обмен с реальным tunnel provider.
 
