@@ -140,7 +140,7 @@ class TunnelTests(unittest.TestCase):
 
 class WorkflowTemplateTests(unittest.TestCase):
     def test_workflow_only_sends_signed_push_event(self):
-        path = Path(__file__).parents[1] / "templates" / "operational-repo" / ".github" / "workflows" / "bridge.yml"
+        path = Path(__file__).parents[1] / "templates" / "operational-repo" / ".github" / "workflows" / "push-bridge.yml"
         workflow = path.read_text(encoding="utf-8")
         self.assertIn("audience=termux-push-bridge", workflow)
         self.assertIn('"after": os.environ["GITHUB_SHA"]', workflow)
