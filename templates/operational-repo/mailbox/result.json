@@ -1,9 +1,10 @@
 {
   "version": 1,
-  "id": "00000000-0000-4000-8000-000000000001",
-  "sequence": 1,
+  "id": "setup-placeholder",
+  "sequence": 0,
   "status": "not_started",
   "exit_code": null,
-  "data": {},
+  "stdout": "",
+  "stderr": "",
   "error": null
 }
