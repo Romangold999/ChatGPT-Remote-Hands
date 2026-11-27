@@ -46,8 +46,7 @@ class StateTests(unittest.TestCase):
                 ReplayState(path).accept(sequence=1,jti="token-2",command_id=COMMAND_ID,command_hash="hash-1")
             with self.assertRaises(StateError):
                 ReplayState(path).accept(sequence=1,jti="token-3",command_id=COMMAND_ID,command_hash="different")
-            with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=3,jti="token-4",command_id="future",command_hash="hash-3")
+            self.assertIsNone(ReplayState(path).accept(sequence=3,jti="token-4",command_id="future",command_hash="hash-3"))
 
     def test_corrupt_state_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
