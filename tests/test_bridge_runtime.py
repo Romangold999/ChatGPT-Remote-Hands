@@ -48,6 +48,19 @@ class StateTests(unittest.TestCase):
                 ReplayState(path).accept(sequence=1,jti="token-3",command_id=COMMAND_ID,command_hash="different")
             self.assertIsNone(ReplayState(path).accept(sequence=3,jti="token-4",command_id="future",command_hash="hash-3"))
 
+    def test_restart_marks_active_command_interrupted_without_rerunning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "state.json"
+            state = ReplayState(path)
+            state.accept(sequence=1, jti="token-before-restart", command_id=COMMAND_ID, command_hash="payload-hash")
+            restarted = ReplayState(path)
+            cached = restarted.accept(
+                sequence=1, jti="token-after-restart", command_id=COMMAND_ID, command_hash="payload-hash"
+            )
+            self.assertEqual(cached["status"], "interrupted")
+            self.assertEqual(cached["exit_code"], 125)
+            self.assertIn("NOT rerun", cached["error"])
+
     def test_corrupt_state_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "state.json"
