@@ -37,12 +37,22 @@ class StateTests(unittest.TestCase):
     def test_sequence_and_jti_are_persisted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "state.json"
-            ReplayState(path).accept(sequence=1, jti="token-1")
+            state = ReplayState(path)
+            first = state.accept(sequence=1, jti="token-1", command_id=COMMAND_ID)
+            self.assertIsNone(first)
+            result = {"id": COMMAND_ID, "sequence": 1, "status": "completed"}
+            state.complete(sequence=1, command_id=COMMAND_ID, result=result)
+            self.assertEqual(
+                ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID),
+                result,
+            )
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=1, jti="token-2")
+                ReplayState(path).accept(sequence=1, jti="token-2", command_id=COMMAND_ID)
             with self.assertRaises(StateError):
-                ReplayState(path).accept(sequence=2, jti="token-1")
-            ReplayState(path).accept(sequence=2, jti="token-2")
+                ReplayState(path).accept(sequence=2, jti="token-3", command_id="different-id")
+            self.assertIsNone(
+                ReplayState(path).accept(sequence=2, jti="token-3", command_id="next-id")
+            )
 
     def test_corrupt_state_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
