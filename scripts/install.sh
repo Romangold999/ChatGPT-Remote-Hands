@@ -150,6 +150,10 @@ os.chmod(temporary, 0o600)
 temporary.replace(target)
 PY
 
+REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
+REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
+[[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] || die "The operational repository owner or visibility check failed."
+
 if [[ "$EXISTING_CONFIG" == "1" ]]; then
   say "Migrating the existing private repository to the push-bridge mailbox layout..."
   gh auth setup-git
@@ -189,10 +193,6 @@ if [[ "$EXISTING_CONFIG" == "1" ]]; then
   rm -rf "$TEMP_REPO"
   trap - EXIT
 fi
-
-REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
-REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
-[[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] || die "The operational repository owner or visibility check failed."
 
 say "Preparing your personal tunnl.gg SSH identity..."
 SSH_DIR="$HOME/.ssh"
