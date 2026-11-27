@@ -65,7 +65,7 @@ else
     REPO_NAME="${FULL_REPO#*/}"
     say "Resuming private repository setup for $FULL_REPO."
   else
-    REPO_NAME="${ANDROID_REMOTE_BRIDGE_REPO:-android-remote-bridge}"
+    REPO_NAME="${ANDROID_REMOTE_BRIDGE_REPO:-android-remote-bridge-private}"
     while gh repo view "$OWNER/$REPO_NAME" >/dev/null 2>&1; do
       printf '\nRepository %s/%s already exists.\n' "$OWNER" "$REPO_NAME" >&2
       printf 'Enter a different new repository name: ' > /dev/tty
