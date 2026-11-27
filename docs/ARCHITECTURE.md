@@ -2,8 +2,8 @@
 
 ## Поток данных — push, без polling
 
-1. ChatGPT или write-capable канал записывает mailbox/command.json со статусом ready в приватный operational repository.
-2. Push по mailbox/command.json запускает GitHub Actions.
+1. ChatGPT или write-capable канал записывает push-bridge/command.json со статусом ready в приватный operational repository.
+2. Push по push-bridge/command.json запускает GitHub Actions.
 3. Workflow checkout-ит точный commit SHA, получает короткоживущий OIDC JWT с audience termux-push-bridge и отправляет через tunnl.gg только event metadata: repository, ref, after SHA и timestamp.
 4. Termux listener проверяет RS256/JWKS, issuer, audience, repository, ref, event_name=push, временные claims и jti.
 5. Termux по точному SHA получает command.json через GitHub Contents API с локальной авторизацией GitHub CLI.
@@ -33,11 +33,11 @@ command.json содержит version, id, sequence, status=ready, operation=she
 
 result.json содержит matching id/sequence, terminal status, timestamps, exit_code, stdout, stderr и error.
 
-Tunnel URL хранится в mailbox/tunnel-url.txt. Workflow запускается только при изменении mailbox/command.json, поэтому обновление tunnel URL не создаёт цикл запуска.
+Tunnel URL хранится в push-bridge/tunnel-url.txt. Workflow запускается только при изменении push-bridge/command.json, поэтому обновление tunnel URL не создаёт цикл запуска.
 
 ## Права и границы
 
-Shell выполняется с правами Termux app user. Это полноценное исполнение команд внутри Android sandbox, но не root и не удалённый рабочий стол. Write access к mailbox/command.json фактически даёт command authority над Termux user account. Operational repo обязан быть private.
+Shell выполняется с правами Termux app user. Это полноценное исполнение команд внутри Android sandbox, но не root и не удалённый рабочий стол. Write access к push-bridge/command.json фактически даёт command authority над Termux user account. Operational repo обязан быть private.
 
 Actions permissions:
 - contents: read — checkout private repository;
