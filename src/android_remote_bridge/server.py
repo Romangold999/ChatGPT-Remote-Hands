@@ -241,6 +241,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 args=(self.server, command, command_hash),
                 daemon=True,
             ).start()
+            acquired = False  # the worker now owns and releases the mailbox lock
             self._reply(
                 202,
                 {"status": "accepted", "id": command.command_id, "sequence": command.sequence},
