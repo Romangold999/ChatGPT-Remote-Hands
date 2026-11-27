@@ -15,7 +15,7 @@ This public repository may contain only generic source code, clean templates, do
 - Every installation generates a dedicated Ed25519 key. Its private key never leaves Android.
 - Local config and replay state are outside Git and use restrictive permissions.
 - GitHub Actions obtains a short-lived OIDC JWT for each push event. The JWT is not persisted as a repository secret.
-- The private operational repository must remain private. Any account or integration with write access to mailbox/command.json has the ability to execute shell commands as the Termux user.
+- The private operational repository must remain private. Any account or integration with write access to push-bridge/command.json has the ability to execute shell commands as the Termux user.
 
 ## Runtime security
 
