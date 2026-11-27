@@ -63,9 +63,9 @@ def _publish_url(repository: str, url: str) -> None:
     )
     if check.returncode:
         raise TunnelError("GitHub CLI is not authenticated; run gh auth login first")
-    path = "mailbox/tunnel-url.txt"
+    path = "push-bridge/tunnel-url.txt"
     lookup = subprocess.run(
-        ["gh", "api", f"repos/{repository}/contents/{path}?ref=main"],
+        ["gh", "api", f"repos/{repository}/contents/{path}?ref=push-bridge"],
         capture_output=True, text=True, check=False,
     )
     if lookup.returncode != 0 or not lookup.stdout.strip():
@@ -85,7 +85,7 @@ def _publish_url(repository: str, url: str) -> None:
             "-f", "message=Update stable tunnl.gg URL",
             "-f", f"content={encoded}",
             "-f", f"sha={current_sha}",
-            "-f", "branch=main",
+            "-f", "branch=push-bridge",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
