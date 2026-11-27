@@ -6,6 +6,18 @@
 
 ```text
 Android-Remote-Bridge/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── src/
+│   └── android_remote_bridge/
+│       ├── __init__.py
+│       └── protocol.py
+├── tests/
+│   └── test_protocol.py
+├── pyproject.toml
+├── .gitignore
+├── CONTRIBUTING.md
 ├── README.md
 ├── CHATGPT_PROMPT_RU.md
 ├── SECURITY.md
