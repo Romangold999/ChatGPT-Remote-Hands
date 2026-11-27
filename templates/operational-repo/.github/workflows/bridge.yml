@@ -5,10 +5,11 @@ on:
     branches: [main]
     paths:
       - "mailbox/command.json"
-  workflow_dispatch:
 
+# Actions only announces a mailbox change. Termux fetches the command,
+# executes it, and publishes mailbox/result.json with its own GitHub identity.
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 concurrency:
@@ -18,85 +19,65 @@ concurrency:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Check out operational mailbox
+      - name: Check out the exact pushed commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Check whether a command is pending
+      - name: Ignore commits that do not contain a ready command
         id: command
         shell: bash
         run: |
-          if jq -e '.status == "pending"' mailbox/command.json >/dev/null; then
-            echo "pending=true" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if jq -e '.version == 1 and .status == "ready"' mailbox/command.json >/dev/null; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "pending=false" >> "$GITHUB_OUTPUT"
-            echo "No pending command; this run will do nothing."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No ready command in this commit; event ignored."
           fi
 
-      - name: Validate endpoint and obtain short-lived OIDC token
-        if: steps.command.outputs.pending == 'true'
-        id: auth
+      - name: Send a signed push event to this user's Termux Bridge
+        if: steps.command.outputs.ready == 'true'
         shell: bash
         env:
-          BRIDGE_URL: ${{ vars.BRIDGE_TUNNEL_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           set -euo pipefail
-          case "$BRIDGE_URL" in
-            https://*) ;;
-            *) echo "BRIDGE_TUNNEL_URL must be an HTTPS URL" >&2; exit 1 ;;
+          TUNNEL_URL="$(tr -d '\r\n' < mailbox/tunnel-url.txt)"
+          case "$TUNNEL_URL" in
+            https://*.tunnl.gg) ;;
+            *) echo "mailbox/tunnel-url.txt does not contain a valid tunnl.gg HTTPS URL" >&2; exit 1 ;;
           esac
-          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=termux-bridge"
+
+          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=termux-push-bridge"
           oidc_token="$(curl --fail --silent --show-error \
             -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "$token_url" | jq -er '.value')"
           echo "::add-mask::${oidc_token}"
-          echo "oidc_token=${oidc_token}" >> "$GITHUB_OUTPUT"
 
-      - name: Send command to this user's Android Bridge
-        if: steps.command.outputs.pending == 'true'
-        shell: bash
-        env:
-          BRIDGE_URL: ${{ vars.BRIDGE_TUNNEL_URL }}
-          OIDC_TOKEN: ${{ steps.auth.outputs.oidc_token }}
-        run: |
-          set -euo pipefail
-          test -s mailbox/command.json
-          if ! jq -e '.status == "pending"' mailbox/command.json >/dev/null; then
-            echo "No pending command; nothing to dispatch."
-            exit 0
-          fi
-          curl --fail --silent --show-error \
-            --connect-timeout 15 --max-time 90 \
-            -X POST "${BRIDGE_URL%/}/webhook" \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+          python3 - <<'PY' > /tmp/bridge-event.json
+          import json, os, time
+          print(json.dumps({
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "ref": os.environ["GITHUB_REF"],
+              "after": os.environ["GITHUB_SHA"],
+              "timestamp": int(time.time()),
+          }, separators=(",", ":")))
+          PY
+
+          status="$(curl --silent --show-error --output /tmp/bridge-response.json \
+            --write-out '%{http_code}' --connect-timeout 15 --max-time 40 \
+            -X POST "${TUNNEL_URL%/}/webhook" \
+            -H "Authorization: Bearer ${oidc_token}" \
             -H "Content-Type: application/json" \
-            --data-binary @mailbox/command.json \
-            --output /tmp/bridge-response.json
-          jq -e --slurpfile command mailbox/command.json '
-            .accepted == true
-            and (.result | type == "object")
-            and .result.id == $command[0].id
-            and .result.sequence == $command[0].sequence
-            and (.result.status == "completed" or .result.status == "failed")
-          ' /tmp/bridge-response.json >/dev/null
-          jq '.result' /tmp/bridge-response.json > mailbox/result.json
-
-      - name: Publish result to this user's private mailbox
-        if: steps.command.outputs.pending == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "android-remote-bridge[bot]"
-          git config user.email "android-remote-bridge[bot]@users.noreply.github.com"
-          git add mailbox/result.json
-          if git diff --cached --quiet; then
-            echo "No result change to publish."
-            exit 0
-          fi
-          git commit -m "bridge: publish command result"
-          git fetch origin main
-          git rebase origin/main
-          git push
+            -H "User-Agent: GitHub-Actions-Android-Remote-Bridge" \
+            --data-binary @/tmp/bridge-event.json)"
+          cat /tmp/bridge-response.json
+          case "$status" in
+            200|202) ;;
+            *) echo "Termux Bridge rejected the push event (HTTP $status)." >&2; exit 1 ;;
+          esac
+          echo "Event delivered. HTTP $status means accepted, not command completion."
