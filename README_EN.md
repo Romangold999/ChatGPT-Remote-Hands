@@ -15,59 +15,57 @@
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-orange">
 </p>
 
-> **Important: this project is still under development.** The core runtime and an initial installer exist, and automated tests pass, but a clean Android installation and the complete “ChatGPT → phone → result” flow have not yet been verified. Do not treat this repository as a ready-to-use app or run the installer on your primary device yet.
+> **Important: this project is experimental and still under development.** Automated unit tests pass, but a clean Android installation and the complete “ChatGPT → phone → result” flow have not yet been verified. Do not run the installer on your primary device until the beginner guide explicitly marks it ready.
 
 ## What is it?
 
-ChatGPT Remote Hands is an experimental project intended to let ChatGPT send approved operations to your own Android device and receive their results.
+ChatGPT Remote Hands is an independent open-source project intended to let ChatGPT send approved operations to your own Android device and receive their results through Termux.
 
-It is **not** a remote desktop or unrestricted phone-control tool. The Bridge is designed to execute only explicitly allowlisted operations, not arbitrary shell commands.
+It is **not** a remote desktop or unrestricted phone-control tool. The current Bridge supports only a small allowlist of built-in operations; arbitrary shell commands are not supported.
 
 ## How it is intended to work
 
-1. Install Termux and your personal Bridge on your Android device.
-2. Create your own private GitHub repository for command and result exchange.
-3. GitHub Actions validates a request and forwards it through a secure tunnel to your phone.
-4. The Bridge validates the request, performs an approved operation, and returns the result.
-5. ChatGPT receives the result through an integration channel that supports the required read and write access.
+1. Install Termux on your Android device.
+2. Run the one-command installer to prepare the local Bridge and your personal private GitHub repository.
+3. GitHub Actions obtains a short-lived OIDC token and forwards a request through your own HTTPS tunnel.
+4. The Bridge validates the request, runs an approved operation, and returns a structured result.
+5. The workflow publishes that result to your private mailbox for ChatGPT to read through a channel with the required access.
 
-Each user has their own phone, private repository, keys, and tunnel. There is no shared central project server handling every user's commands.
-
-## Who is it for?
-
-The project is being built primarily for **ChatGPT users** who want to connect the assistant to their own Android device.
-
-There is an important requirement: the ChatGPT integration method must actually be able to write requests to the private repository and read results. The GitHub connector in ChatGPT may be read-only. Having that connector available does not automatically mean it can operate the Bridge.
+Each user has their own phone, private repository, SSH key, and tunnel. The project does not operate a shared command server for all users.
 
 ## Is it ready to install?
 
-**Not yet.** We do not want beginners to have to understand source code or assemble the system manually from many components.
+**Not yet.** The current installer exists, but it has not passed a complete clean-device test on Android/Termux ARM64. The one-command flow is the target for beginners; it must not be presented as production-ready until that test succeeds.
 
 The repository currently includes:
 - a local Termux Bridge runtime;
-- GitHub OIDC token validation and replay protection;
-- a limited allowlist of built-in operations;
+- GitHub Actions OIDC token validation and replay protection;
+- three built-in operations: `bridge.status`, `bridge.health`, and `system.info`;
 - a private operational repository template and GitHub Actions workflow;
 - an SSH reverse-tunnel manager using tunnl.gg;
-- an initial installer for Termux on ARM64;
+- an experimental ARM64 Termux installer;
 - automated project tests.
 
-Before a public release, we still need to:
-- verify a clean installation on Android/Termux;
-- complete an end-to-end test from a ChatGPT request to a result on the phone;
-- test recovery after network interruptions and restarts;
-- write a beginner-friendly setup guide;
-- verify a real ChatGPT integration channel with write access to the private repository.
+Before public release, we still need to verify a clean installation, the full end-to-end command/result flow, recovery after interruptions, and a real ChatGPT integration channel with both write and read access.
 
-**If you are new to this project, please do not install anything yet.** A clear “Start here” guide will be added after the installation flow is verified.
+## Start here
+
+- [Beginner installation guide](docs/GETTING_STARTED.md) — Termux download, GitHub sign-in note, the visible one-command installer, and required browser confirmations.
+- [Download the ChatGPT instruction prompt (.md)](CHATGPT_PROMPT_RU.md?raw=1) — a Markdown file describing the Bridge's real capabilities, limits, and safe operating rules.
+
+The installer command in the guide is explicitly marked **do not run yet** until clean-device testing is complete.
+
+## Important integration limitation
+
+The ChatGPT GitHub connector may be read-only. A read-only connection cannot submit commands to the private repository. A working two-way setup requires a channel that can write a command and read its result. Do not assume that merely connecting GitHub to ChatGPT enables device control.
 
 ## Security and privacy
 
-- Every user gets a separate installation and private GitHub repository.
-- Private SSH keys and local secrets are generated on the device and must never be published.
-- The public repository contains only source code, documentation, tests, and clean templates.
-- The Bridge accepts only validated requests and allowlisted operations.
-- The project is not intended to provide hidden or unrestricted access to your phone.
+- Every user has a separate installation and private GitHub repository.
+- Private SSH keys and local secrets are generated on the Android device and must never be published.
+- The public repository contains source code, documentation, tests, and clean templates only.
+- The Bridge validates GitHub Actions OIDC tokens and accepts only explicitly allowlisted operations.
+- The current operational workflow needs `contents: write` to publish the result mailbox and `id-token: write` to request a short-lived OIDC token.
 
 Never post tokens, passwords, private keys, local configuration, or personal tunnel URLs in public Issues or Discussions. See [SECURITY.md](SECURITY.md).
 
@@ -75,13 +73,11 @@ Never post tokens, passwords, private keys, local configuration, or personal tun
 
 - Android may stop background processes; 24/7 operation is not guaranteed.
 - The free tunnl.gg tier has session, idle-time, and traffic limits.
-- A webhook acceptance response does not mean that an operation has completed.
-- A successful GitHub Actions run alone does not prove that the phone executed the operation; the result must be checked.
+- A successful workflow run or HTTP response alone is not enough; the actual result mailbox must be checked.
+- The tunnel provider terminates TLS at its edge; do not treat it as end-to-end encryption to the phone.
 - This is an independent open-source project. **It is not an official OpenAI product and is not endorsed by OpenAI.**
 
 ## Development documentation
-
-The following documentation is currently aimed at developers and testers:
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Installation plan](docs/INSTALLATION_PLAN.md)
