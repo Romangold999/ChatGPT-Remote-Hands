@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "id": "00000000-0000-4000-8000-000000000001",
-  "sequence": 1,
+  "id": "setup-placeholder",
+  "sequence": 0,
   "status": "idle",
-  "operation": "bridge.health",
-  "arguments": {},
-  "approval": false,
-  "timeout_seconds": 10
+  "operation": "shell",
+  "approval": "not_required",
+  "timeout_seconds": 300,
+  "command": "echo 'Bridge is ready'"
 }
