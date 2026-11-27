@@ -100,7 +100,7 @@ class ReplayState:
                 raise StateError("result does not match the active command")
             if result.get("id") != command_id or result.get("sequence") != sequence:
                 raise StateError("result identity does not match the active command")
-            if result.get("status") not in {"completed", "failed"}:
+            if result.get("status") not in {"completed", "failed", "timeout", "error", "interrupted"}:
                 raise StateError("only terminal results can be persisted")
             data["last_result"] = result
             self._write(data)
