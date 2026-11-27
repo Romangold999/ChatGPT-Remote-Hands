@@ -49,6 +49,10 @@ jobs:
         run: |
           set -euo pipefail
           test -s mailbox/command.json
+          if ! jq -e '.status == "pending"' mailbox/command.json >/dev/null; then
+            echo "No pending command; nothing to dispatch."
+            exit 0
+          fi
           curl --fail --silent --show-error \
             --connect-timeout 15 --max-time 90 \
             -X POST "${BRIDGE_URL%/}/webhook" \
