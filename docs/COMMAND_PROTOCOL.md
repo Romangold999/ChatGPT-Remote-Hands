@@ -5,7 +5,7 @@
 Bridge работает по push-событиям. Termux НЕ опрашивает GitHub и не запрашивает новые команды по таймеру.
 
 1. GPT записывает push-bridge/command.json со статусом ready в личный private operational repository.
-2. Push в main по пути push-bridge/command.json запускает GitHub Actions.
+2. Push в ветке push-bridge по пути push-bridge/command.json запускает GitHub Actions.
 3. Workflow checkout-ит точный commit SHA, получает короткоживущий GitHub Actions OIDC JWT с audience termux-push-bridge и отправляет на туннель только событие: repository, ref, after (SHA коммита), timestamp.
 4. Termux проверяет JWT и событие, затем сам один раз получает command.json из GitHub по точному SHA события.
 5. Termux выполняет bash -lc с командой в домашнем каталоге Termux с заданным timeout.
