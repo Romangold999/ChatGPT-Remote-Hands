@@ -2,29 +2,53 @@
 
 Документ описывает целевой сценарий. Это не готовые команды установки.
 
-## Предварительные требования
+## Что нужно пользователю
 
 - Android с поддерживаемой архитектурой (первый целевой профиль — ARM64).
-- Termux из поддерживаемого источника.
+- Termux из выбранного поддерживаемого источника.
 - GitHub account.
-- AI assistant с каналом чтения и отдельным подтверждённым write-capable каналом для mailbox.
-- Сеть, позволяющая подключаться к GitHub и выбранному tunnel provider.
+- AI assistant и подтверждённый write-capable канал для mailbox (GitHub connector ChatGPT может быть read-only).
+- Сеть для GitHub и выбранного tunnel provider.
+
+### Android приложения и плагины
+
+1. **Termux** — обязателен.
+2. **Termux:API** — необязателен для базового Bridge. Нужен, если включены Android-функции, например системные уведомления, информация о батарее, датчики или другие API-вызовы. Для работы требуются:
+   - Android-приложение Termux:API;
+   - пакет командной строки `termux-api`, устанавливаемый внутри Termux через `pkg`.
+3. **Termux:Boot** — необязателен. Нужен только если пользователь хочет, чтобы Bridge пытался запускаться после перезагрузки Android. Не устанавливать и не включать без отдельного согласия.
+
+**Важно:** Termux и все его plugin APK должны быть из одного источника сборки/подписи. Например, Termux + Termux:API + Termux:Boot все из F-Droid либо все из GitHub Releases. Смешивание источников может привести к ошибке подписи и невозможности установки плагина поверх основной программы.
+
+Bootstrap не может незаметно установить Android APK-плагины без действий/подтверждений пользователя. Он должен проверить наличие приложений, открыть официальную страницу нужного плагина и показать точный ручной шаг. Не скачивать APK с неизвестных сайтов.
 
 ## Bootstrap
 
-1. Проверить Termux environment, Android release, ABI и доступ к хранилищу.
-2. Установить только минимальные пакеты через `pkg`: Python, Git, OpenSSH, curl, jq и другие строго необходимые зависимости.
-3. Проверить доступность GitHub CLI в Termux и установить поддерживаемым способом.
-4. Выполнить GitHub CLI browser/device authorization; не передавать credential в чат.
-5. Проверить auth status и необходимые scopes без вывода токена.
-6. Создать уникальный private repository и проверить visibility/default branch.
-7. Загрузить operational template в пользовательский private repo.
-8. Сгенерировать индивидуальные config, audience/repository/ref values и SSH key.
-9. Зарегистрировать public key у выбранного tunnel provider; сохранить host fingerprint и known_hosts.
-10. Запустить локальный listener и tunnel supervisor.
-11. Создать Actions workflow с минимальными permissions и закреплёнными Actions.
-12. Выполнить тестовую команду с безопасным эффектом.
-13. Проверить result mailbox и завершить настройку.
+1. Проверить Android release, ABI, Termux package manager, свободное место и сетевую доступность.
+2. Проверить источник/совместимость Termux и установленных plugin APK.
+3. Спросить, нужны ли Android API функции; если да — проверить Termux:API app, предложить официальный источник из той же signing family и установить CLI package `termux-api` через `pkg`.
+4. Спросить, хочет ли пользователь автозапуск после перезагрузки; если да — предложить Termux:Boot из того же источника, попросить запустить приложение один раз и только после согласия создать минимальный boot script.
+5. Установить минимальные runtime packages через `pkg`: Python, Git, OpenSSH, curl, jq и только другие реально необходимые зависимости.
+6. Проверить доступность GitHub CLI в Termux и установить поддерживаемым способом.
+7. Выполнить GitHub CLI browser/device authorization; не передавать credential в чат и не выводить token.
+8. Проверить auth status и необходимые scopes без раскрытия credential.
+9. Создать уникальный private repository и проверить visibility/default branch.
+10. Загрузить чистый operational template в пользовательский private repo.
+11. Сгенерировать уникальные SSH keys и локальные secrets на Android. Не загружать private key в GitHub.
+12. Зарегистрировать только public key у tunnel provider; проверить host fingerprint и known_hosts.
+13. Создать Actions workflow с минимальными permissions и закреплёнными Actions.
+14. Запустить локальный listener и tunnel supervisor.
+15. Выполнить тестовую команду с безопасным эффектом и проверить result mailbox.
+
+## Секреты и конфигурация
+
+- Все пользовательские секреты генерируются при установке на устройстве.
+- Публичный репозиторий никогда не получает секреты.
+- Private operational repository содержит только необходимые несекретные файлы и mailbox.
+- Локальные файлы с секретами исключены из Git и имеют ограниченные права доступа.
+- Не копировать существующие настройки/секреты из другой установки.
+- Не выводить credential или private key в логи и диагностику.
+- Установщик должен иметь безопасный режим обновления и не перезаписывать неизвестные пользовательские файлы.
 
 ## Idempotency / resume
 
@@ -37,7 +61,7 @@
 
 ## Авторизация
 
-Предпочтительно использовать сохранённую GitHub CLI auth. Не создавать PAT только ради обхода браузера. Проверить, какие scopes нужны для создания repository, записи contents и workflow. Разделять user auth и Actions OIDC. Не обещать бессрочную авторизацию.
+Предпочтительно использовать GitHub CLI browser/device auth. Не создавать PAT только ради обхода браузера. Разделять user auth и Actions OIDC. Не обещать бессрочную авторизацию.
 
 ## Tunnel
 
@@ -51,3 +75,5 @@
 - Actions failure: изучить точные run/job/step logs.
 - OIDC rejection: проверить issuer/audience/repo/ref/time/JWKS.
 - Mailbox stuck: проверить id/sequence/status и не перезаписывать активную команду.
+- Termux:API unavailable: отключить только связанные optional features, не ломать базовый Bridge.
+- Boot startup failure: показать инструкцию ручного запуска и проверить Android battery/background restrictions.
