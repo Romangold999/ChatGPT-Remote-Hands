@@ -27,7 +27,7 @@ KNOWN_HOST_LINE = (
     "AAAAC3NzaC1lZDI1NTE5AAAAIN3HFkIcqgWI6Sa1E31KiUbcfcrX/5MZl4LnaQnUYL8K"
 )
 HOST_FINGERPRINT = "SHA256:5uQ6VobmUpY4wyMmm5jnAwFtt3aX06WYDDM4ER+2WUw"
-_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\\.tunnl\\.gg")
+_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.tunnl\.gg")
 _REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 
@@ -90,7 +90,7 @@ def _prepare_known_hosts(path: Path) -> None:
         raise TunnelError("stored tunnl.gg host key differs from the published ED25519 fingerprint")
     if not matching:
         with path.open("a", encoding="utf-8") as stream:
-            stream.write(KNOWN_HOST_LINE + "\\n")
+            stream.write(KNOWN_HOST_LINE + "\n")
     os.chmod(path, 0o600)
 
 
@@ -159,7 +159,7 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
     log_file.parent.mkdir(parents=True, exist_ok=True)
     while not stop_event["stop"]:
         with log_file.open("a", encoding="utf-8", buffering=1) as log:
-            log.write("[tunnl.gg] starting stable SSH reverse tunnel\\n")
+            log.write("[tunnl.gg] starting stable SSH reverse tunnel\n")
             child = subprocess.Popen(
                 command,
                 stdin=subprocess.DEVNULL,
@@ -179,10 +179,10 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
                     candidate = _tunnel_event(line)
                     if candidate and _health_ok(candidate):
                         url = candidate
-                        url_file.write_text(url + "\\n", encoding="utf-8")
+                        url_file.write_text(url + "\n", encoding="utf-8")
                         os.chmod(url_file, 0o600)
                         _publish_url(repository, url)
-                        log.write("[tunnl.gg] stable URL published to private GitHub repo\\n")
+                        log.write("[tunnl.gg] stable URL published to private GitHub repo\n")
                 if stop_event["stop"]:
                     break
             if stop_event["stop"]:
@@ -194,7 +194,7 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
             stop_event["child"] = None
         if not stop_event["stop"]:
             with log_file.open("a", encoding="utf-8") as log:
-                log.write(f"[tunnl.gg] SSH exited ({child.returncode}); reconnecting in 5 seconds\\n")
+                log.write(f"[tunnl.gg] SSH exited ({child.returncode}); reconnecting in 5 seconds\n")
             stop_event["wake"].wait(5)
             stop_event["wake"].clear()
 
@@ -223,7 +223,7 @@ def _worker(config_path: Path) -> None:
 def _matching_pid(pid_file: Path) -> int | None:
     try:
         pid = int(pid_file.read_text(encoding="ascii").strip())
-        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\\x00", b" ").decode(
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode(
             "utf-8", errors="replace"
         )
         if "android_remote_bridge.tunnel" not in cmdline or "--worker" not in cmdline:
@@ -327,7 +327,7 @@ def main() -> None:
         else:
             print(json.dumps(status(args.config), ensure_ascii=False))
     except TunnelError as exc:
-        parser.exit(1, f"android-remote-bridge-tunnel: {exc}\\n")
+        parser.exit(1, f"android-remote-bridge-tunnel: {exc}\n")
 
 
 if __name__ == "__main__":
