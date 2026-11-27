@@ -79,6 +79,10 @@ else
     say "Creating your own private GitHub repository: $FULL_REPO"
     gh repo create "$FULL_REPO" --private --description "Private Android Remote Bridge mailbox for $OWNER"
   fi
+  REPO_OWNER="$(gh api "repos/$FULL_REPO" --jq .owner.login)"
+  REPO_VISIBILITY="$(gh api "repos/$FULL_REPO" --jq .visibility)"
+  [[ "$REPO_OWNER" == "$OWNER" && "$REPO_VISIBILITY" == "private" ]] \
+    || die "The operational repository owner or visibility check failed."
 
   gh auth setup-git
   TEMP_REPO="$(mktemp -d "${TMPDIR:-$PREFIX/tmp}/arb-repo.XXXXXX")"
