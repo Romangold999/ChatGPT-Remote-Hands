@@ -12,7 +12,7 @@
   <img alt="Status" src="https://img.shields.io/badge/status-development-orange">
 </p>
 
-> **Текущий статус:** проектная база и спецификация. Универсальный установщик и полный рабочий комплект ещё разрабатываются. Не используйте репозиторий как готовую production-инструкцию до появления релиза и прохождения тестов.
+> **Текущий статус:** реализован начальный локальный Bridge runtime (OIDC, replay/sequence state, безопасный allowlist executor) и шаблон приватного operational repo. Универсальный установщик, tunnel manager и end-to-end проверка ещё разрабатываются. Это не production-ready релиз.
 
 ## Что это
 
@@ -129,12 +129,13 @@ Termux и все его плагины должны быть установле�
 | `docs/PROJECT_STRUCTURE.md` | Карта каталогов и границы хранения данных |
 | `CONTRIBUTING.md` | Правила безопасного участия в проекте |
 | `pyproject.toml` | Метаданные Python-пакета и настройки инструментов |
-| `src/android_remote_bridge/` | Начальный модуль строгой проверки mailbox-команд |
-| `tests/` | Unit-тесты протокола |
+| `src/android_remote_bridge/` | Protocol parser, OIDC verifier, persistent state, local listener и allowlist executor |
+| `templates/operational-repo/` | Чистый шаблон индивидуального приватного repo: workflow и mailbox |
+| `tests/` | Unit-тесты протокола и runtime |
 | `.github/workflows/ci.yml` | Автоматический запуск unit-тестов при push и pull request |
 | `.gitignore` | Исключения локальных секретов и runtime-файлов |
 
-Уже добавлены начальный Python-модуль `src/android_remote_bridge/protocol.py`, unit-тесты `tests/test_protocol.py` и CI workflow. Каталоги `scripts/` и `templates/` появятся после реализации и проверки установщика и шаблона приватного operational repo. Документация не должна выдавать запланированный файл за уже существующий.
+Уже реализованы локальный HTTP listener на loopback, GitHub OIDC validation по JWKS, replay/sequence state, три встроенные операции без shell и шаблон workflow для приватного operational repo. CI устанавливает Python-пакет и запускает тесты. Каталог `scripts/` и полноценный `install.sh` ещё не созданы; tunnel provider и end-to-end сценарий не подключены.
 
 ## Принципы проекта
 
