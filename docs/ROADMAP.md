@@ -36,7 +36,8 @@
 
 ## Этап 4 — bootstrap и восстановление
 
-- [ ] Сделать идемпотентный `install.sh` для Termux ARM64.
+- [x] Добавить первый bootstrap draft `scripts/install.sh` для Termux ARM64.
+- [ ] Проверить установщик на чистом Termux и довести resume/идемпотентность до release quality.
 - [ ] Проверять зависимости и не перезаписывать неизвестные файлы.
 - [ ] Использовать GitHub CLI browser/device flow.
 - [ ] Создавать private operational repo и загружать только template.
