@@ -104,6 +104,10 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("config repository must be OWNER/REPOSITORY")
     if data["ref"] != "refs/heads/main":
         raise ValueError("config ref must match the operational workflow branch")
+    port = data.get("port", 18767)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1024 <= port <= 65535:
+        raise ValueError("config port must be an integer between 1024 and 65535")
+    data["port"] = port
     return data
 
 
@@ -115,13 +119,13 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     state_path = Path(config["state_file"]).expanduser()
     replay_state = ReplayState(state_path)
-    server = ThreadingHTTPServer(("127.0.0.1", 18766), BridgeHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", config["port"]), BridgeHandler)
     server.verifier = GitHubOIDCVerifier(  # type: ignore[attr-defined]
         OIDCPolicy(config["audience"], config["repository"], config["ref"])
     )
     server.replay_state = replay_state  # type: ignore[attr-defined]
     server.last_result = None  # type: ignore[attr-defined]
-    LOG.info("listener bound to 127.0.0.1:18766")
+    LOG.info("listener bound to 127.0.0.1:%s", config["port"])
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
