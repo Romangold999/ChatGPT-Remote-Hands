@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "android-remote-bridge"
+version = "0.1.0"
+description = "Per-user secure bridge between AI workflows and Android Termux"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "License not selected yet" }
+authors = [{ name = "Android Remote Bridge contributors" }]
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
