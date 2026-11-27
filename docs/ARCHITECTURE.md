@@ -19,7 +19,7 @@
 - Lifecycle CLI `android-remote-bridge start|stop|status|logs` для локального listener.
 - Endpoint `GET /health` и `POST /webhook`.
 - OIDC JWT verification через GitHub JWKS и PyJWT: RS256, issuer, audience, exp/iat, repository, ref и jti.
-- Persistent replay/sequence state с атомарной заменой файла, правами 0600 и кэшированием последнего результата для безопасного повтора той же команды.
+- Persistent replay/sequence state с атомарной заменой файла, правами 0600 и кэшированием последнего результата; повтор допускается только при совпадении command ID, sequence и SHA-256 исходного payload.
 - Envelope parser с лимитом 16 KiB и строгим allowlist.
 - Executor без shell/subprocess для `bridge.status`, `bridge.health`, `system.info`.
 - Шаблон operational repo: workflow вызывает tunnel, затем сохраняет JSON result в приватный mailbox.
