@@ -29,20 +29,20 @@ ChatGPT/разрешённый GitHub write channel → private GitHub repositor
 
 ## Первичное подключение нового пользователя
 
-1. Объясни, что нужны Android, Termux, GitHub account и доступ к ChatGPT. Дай ссылку на официальный источник Termux только после проверки актуальной поддержки.
-2. Проверь Termux и Android ABI. Не применяй Ubuntu/proot инструкции к нативному Termux без необходимости. Уточни источник установки Termux: все APK-плагины должны быть из той же signing family; нельзя смешивать F-Droid и GitHub builds.
-3. Termux:API — optional: если нужны Android API features, проверь plugin app Termux:API и установи CLI package `termux-api` через `pkg`. Не делай его обязательным для базового Bridge.
-4. Termux:Boot — optional: спроси отдельное согласие на запуск после reboot. Только после opt-in предложи APK из того же источника, попроси пользователя один раз открыть приложение и создай boot script. Не включай Boot, wake lock или автозапуск молча.
+1. Объясни, что нужны Android, Termux, GitHub account и доступ к AI assistant. Дай ссылку на официальный источник Termux только после проверки актуальной поддержки.
+2. Проверь Termux и Android ABI. Не применяй Ubuntu/proot инструкции к нативному Termux без необходимости. Уточни источник установки: Termux и все APK-плагины должны быть из одной signing family; нельзя смешивать F-Droid и GitHub builds.
+3. Termux:API — optional. Если включены Android API features, проверь наличие APK приложения Termux:API и установи CLI package `termux-api` через `pkg`. Не делай его обязательным для базового Bridge.
+4. Termux:Boot — optional. Спроси отдельное согласие на запуск после reboot. Только после opt-in предложи APK из того же источника, попроси пользователя один раз открыть приложение и создай минимальный boot script. Не включай Boot, wake lock или автозапуск молча.
 5. Проверь команды `pkg`, `python`, `git`, `gh`, `ssh`, `curl`, `jq`.
-4. Если `gh` отсутствует, проверь актуальный способ установки GitHub CLI именно в Termux ARM64. Не предполагай, что Ubuntu apt package совместим.
-5. Предложи однократный GitHub CLI login через браузер/device flow. Объясни, что пользователь сам подтверждает разрешения GitHub. После входа проверь `gh auth status` и безопасный API user check.
-6. Создай новый private repository через GitHub CLI/API только после согласия и проверки scopes/permissions. Проверь visibility=private.
-7. Сгенерируй уникальную конфигурацию пользователя локально. Не используй значения владельца исходного проекта.
-8. Настрой tunnel registration. Если провайдер требует ручного подтверждения email/аккаунта/SSH key, объясни только этот конкретный шаг.
-9. Создай workflow с минимальными permissions: обычно contents: read и id-token: write; contents: write только если конкретная операция действительно требует записи.
-10. Настрой OIDC audience и строгую проверку repository, ref/branch, issuer, timestamps, replay protection.
-11. Проведи тестовый end-to-end цикл и проверь result mailbox.
-12. Сохрани recovery instructions и команды управления.
+6. Если `gh` отсутствует, проверь актуальный способ установки GitHub CLI именно в Termux ARM64. Не предполагай, что Ubuntu apt package совместим.
+7. Предложи GitHub CLI login через браузер/device flow. Пользователь сам подтверждает разрешения GitHub. После входа проверь `gh auth status` и безопасный API user check, не раскрывая credential.
+8. Создай новый private repository через GitHub CLI/API только после согласия и проверки scopes/permissions. Проверь visibility=private.
+9. Сгенерируй уникальные ключи и конфигурацию пользователя локально на Android. Не используй значения владельца исходного проекта и не загружай private key в GitHub.
+10. Настрой tunnel registration. Если провайдер требует ручного подтверждения email/аккаунта/public SSH key, объясни только этот конкретный шаг.
+11. Создай workflow с минимальными permissions: обычно contents: read и id-token: write; contents: write только если конкретная операция действительно требует записи.
+12. Настрой OIDC audience и строгую проверку repository, ref/branch, issuer, timestamps и replay protection.
+13. Проведи тестовый end-to-end цикл и проверь result mailbox.
+14. Сохрани recovery instructions и команды управления.
 
 ## Протокол работы с mailbox
 
