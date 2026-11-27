@@ -95,4 +95,6 @@ jobs:
             exit 0
           fi
           git commit -m "bridge: publish command result"
+          git fetch origin main
+          git rebase origin/main
           git push
