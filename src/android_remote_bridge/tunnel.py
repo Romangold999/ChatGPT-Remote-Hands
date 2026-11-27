@@ -65,18 +65,26 @@ def _publish_url(repository: str, url: str) -> None:
         raise TunnelError("GitHub CLI is not authenticated; run gh auth login first")
     path = "mailbox/tunnel-url.txt"
     lookup = subprocess.run(
-        ["gh", "api", f"repos/{repository}/contents/{path}?ref=main", "--jq", ".sha"],
+        ["gh", "api", f"repos/{repository}/contents/{path}?ref=main"],
         capture_output=True, text=True, check=False,
     )
     if lookup.returncode != 0 or not lookup.stdout.strip():
         raise TunnelError("could not read mailbox/tunnel-url.txt in the private repository")
+    try:
+        current = json.loads(lookup.stdout)
+        current_url = base64.b64decode(current.get("content", "")).decode("utf-8").strip()
+        current_sha = current["sha"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise TunnelError("private repository returned an invalid tunnel URL file") from exc
+    if current_url == url.rstrip("/"):
+        return
     encoded = base64.b64encode((url.rstrip("/") + "\n").encode("utf-8")).decode("ascii")
     result = subprocess.run(
         [
             "gh", "api", f"repos/{repository}/contents/{path}", "--method", "PUT",
             "-f", "message=Update stable tunnl.gg URL",
             "-f", f"content={encoded}",
-            "-f", f"sha={lookup.stdout.strip()}",
+            "-f", f"sha={current_sha}",
             "-f", "branch=main",
         ],
         stdout=subprocess.DEVNULL,
