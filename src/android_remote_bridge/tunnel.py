@@ -177,12 +177,25 @@ def _run_loop(config: dict[str, Any], stop_event: Any) -> None:
                 log.write(line)
                 if url is None:
                     candidate = _tunnel_event(line)
-                    if candidate and _health_ok(candidate):
+                    if candidate:
                         url = candidate
-                        url_file.write_text(url + "\n", encoding="utf-8")
-                        os.chmod(url_file, 0o600)
-                        _publish_url(repository, url)
-                        log.write("[tunnl.gg] stable URL published to private GitHub repo\n")
+                        healthy = False
+                        for _attempt in range(6):
+                            if _health_ok(url):
+                                healthy = True
+                                break
+                            if stop_event["stop"]:
+                                break
+                            time.sleep(1)
+                        if healthy:
+                            url_file.write_text(url + "\n", encoding="utf-8")
+                            os.chmod(url_file, 0o600)
+                            _publish_url(repository, url)
+                            log.write("[tunnl.gg] stable URL published to private GitHub repo\n")
+                        else:
+                            log.write("[tunnl.gg] tunnel URL did not pass health check; reconnecting\n")
+                            child.terminate()
+                            break
                 if stop_event["stop"]:
                     break
             if stop_event["stop"]:
